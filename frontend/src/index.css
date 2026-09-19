@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
+
+@theme {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+
+  /* Ground */
+  --color-bg: #f5f5f2;
+  --color-surface: #ffffff;
+  --color-surface-alt: #ececE8;
+
+  /* Ink */
+  --color-ink: #1e2320;
+  --color-ink-muted: #6b6f6b;
+  --color-ink-faint: #9ba09b;
+  --color-label: #4c514e;
+
+  /* Lines */
+  --color-border: #e2e2de;
+  --color-border-strong: #d8d9d4;
+
+  /* Brand */
+  --color-accent: #1a3c5e;
+  --color-forest: #2b5d3e;
+  --color-clay: #8a5300;
+
+  /* Status */
+  --color-success-bg: #e8f2ec;
+  --color-success-border: #b7d8c3;
+  --color-success-text: #1f6b3a;
+  --color-warning-bg: #fdf2e0;
+  --color-warning-border: #e0ab52;
+  --color-warning-text: #8a5300;
+  --color-avatar-bg: #e8ecef;
+
+  /* Camera surfaces */
+  --color-camera-bg: #14161a;
+  --color-camera-surface: #23282c;
+
+  /* Radii matched to source design */
+  --radius-field: 9px;
+  --radius-btn: 10px;
+  --radius-card: 14px;
+  --radius-cta: 16px;
+  --radius-sheet: 20px;
+  --radius-chip: 6px;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+}

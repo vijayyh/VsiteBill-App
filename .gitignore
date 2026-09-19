@@ -1,0 +1,16 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Backend
+backend/.venv/
+backend/__pycache__/
+backend/siteverify/__pycache__/
+backend/siteverify/routes/__pycache__/
+backend/siteverify.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Editors / OS
+.DS_Store

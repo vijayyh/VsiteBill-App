@@ -106,3 +106,11 @@ export function IconClock(props: IconProps) {
     </svg>
   )
 }
+
+export function IconCloud(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.4-2A5 5 0 0 0 6.5 19h11z" />
+    </svg>
+  )
+}

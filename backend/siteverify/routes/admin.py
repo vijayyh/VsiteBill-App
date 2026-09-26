@@ -1,5 +1,6 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, redirect, request
 
+from .. import drive
 from ..auth import generate_password, require_role
 from ..extensions import db
 from ..models import Delivery, PasswordResetRequest, Project, User, utcnow
@@ -25,6 +26,18 @@ def overview():
             "pendingPasswordResets": PasswordResetRequest.query.filter_by(status="PENDING").count(),
         }
     )
+
+
+@bp.get("/deliveries")
+@require_role("admin")
+def list_all_deliveries():
+    deliveries = Delivery.query.order_by(Delivery.uploaded_at.desc()).all()
+    result = []
+    for d in deliveries:
+        data = d.to_dict()
+        data["project"] = {"code": d.project.code, "name": d.project.name, "accent": d.project.accent}
+        result.append(data)
+    return jsonify({"deliveries": result})
 
 
 @bp.get("/users")
@@ -130,6 +143,15 @@ def create_project():
     project = Project(id=project_id, code=code, name=name, accent=accent)
     db.session.add(project)
     db.session.commit()
+
+    try:
+        drive.ensure_project_folder_now(project)
+    except Exception:
+        # Project creation itself must not fail just because Drive is briefly
+        # unreachable — the folder gets created lazily on the first "Save to
+        # Drive" for this project if this eager attempt doesn't go through.
+        current_app.logger.exception("Could not eagerly create Drive folder for new project")
+
     return jsonify({"project": project.to_dict()}), 201
 
 
@@ -148,3 +170,78 @@ def update_project(project_id):
 
     db.session.commit()
     return jsonify({"project": project.to_dict()})
+
+
+@bp.get("/drive/status")
+@require_role("admin")
+def drive_status():
+    account = drive.get_account()
+    configured = bool(current_app.config["GOOGLE_CLIENT_ID"] and current_app.config["GOOGLE_CLIENT_SECRET"])
+    return jsonify(
+        {
+            "configured": configured,
+            "connected": account is not None,
+            "account": account.to_dict() if account else None,
+        }
+    )
+
+
+@bp.get("/drive/connect")
+@require_role("admin")
+def drive_connect():
+    if not (current_app.config["GOOGLE_CLIENT_ID"] and current_app.config["GOOGLE_CLIENT_SECRET"]):
+        return jsonify({"error": "Google Drive credentials are not configured on the server yet"}), 400
+    url = drive.get_authorization_url(admin_id=g.current_user.id)
+    return jsonify({"authUrl": url})
+
+
+@bp.get("/drive/callback")
+def drive_callback():
+    # Google redirects the admin's browser here directly — no Authorization
+    # header available. Which admin gets credited, and the PKCE code_verifier
+    # needed to complete the exchange, both travel via the DriveOAuthState row
+    # that /drive/connect stashed, keyed by this "state" value.
+    code = request.args.get("code")
+    state = request.args.get("state")
+    frontend_url = current_app.config["FRONTEND_URL"]
+
+    if not code or not state:
+        return redirect(f"{frontend_url}/admin?drive=error")
+
+    try:
+        drive.exchange_code(code, state)
+    except Exception:
+        current_app.logger.exception("Google Drive connect failed")
+        return redirect(f"{frontend_url}/admin?drive=error")
+
+    return redirect(f"{frontend_url}/admin?drive=connected")
+
+
+@bp.post("/drive/disconnect")
+@require_role("admin")
+def drive_disconnect():
+    drive.disconnect()
+    return jsonify({"ok": True})
+
+
+@bp.get("/drive/shared-drives")
+@require_role("admin")
+def drive_shared_drives():
+    try:
+        drives = drive.list_shared_drives()
+    except drive.DriveNotConnected:
+        return jsonify({"error": "Connect a Google account first"}), 409
+    return jsonify({"sharedDrives": [{"id": d["id"], "name": d["name"]} for d in drives]})
+
+
+@bp.post("/drive/shared-drive")
+@require_role("admin")
+def drive_set_shared_drive():
+    data = request.get_json(silent=True) or {}
+    drive_id = data.get("id") or None
+    name = data.get("name") or None
+    try:
+        account = drive.set_shared_drive(drive_id, name)
+    except drive.DriveNotConnected:
+        return jsonify({"error": "Connect a Google account first"}), 409
+    return jsonify({"account": account.to_dict()})

@@ -5,6 +5,7 @@ frontend/dev-dist/
 frontend/.env
 
 # Backend
+backend/.env
 backend/.venv/
 backend/__pycache__/
 backend/siteverify/__pycache__/

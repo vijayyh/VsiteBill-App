@@ -3,6 +3,7 @@ import uuid
 from flask import Blueprint, current_app, g, jsonify, request
 from werkzeug.utils import secure_filename
 
+from .. import drive
 from ..auth import login_required
 from ..extensions import db
 from ..models import Delivery, Project
@@ -89,4 +90,28 @@ def update_delivery(delivery_id):
         delivery.status = data["status"]
 
     db.session.commit()
+    return jsonify({"delivery": delivery.to_dict()})
+
+
+@bp.post("/deliveries/<int:delivery_id>/save-to-drive")
+@login_required
+def save_delivery_to_drive(delivery_id):
+    delivery = Delivery.query.get(delivery_id)
+    if delivery is None:
+        return jsonify({"error": "Delivery not found"}), 404
+    if delivery.drive_file_id:
+        return jsonify({"error": "This delivery is already saved to Drive", "delivery": delivery.to_dict()}), 409
+
+    project = Project.query.get(delivery.project_id)
+
+    try:
+        delivery = drive.upload_delivery_photo(project, delivery)
+    except drive.DriveNotConnected:
+        return jsonify({"error": "No Google account is connected yet — ask an admin to connect one"}), 409
+    except FileNotFoundError:
+        return jsonify({"error": "The original photo file is missing on the server"}), 500
+    except Exception as exc:  # Google API errors, network issues, etc.
+        current_app.logger.exception("Drive upload failed")
+        return jsonify({"error": f"Could not save to Drive: {exc}"}), 502
+
     return jsonify({"delivery": delivery.to_dict()})

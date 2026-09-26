@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
+from . import migrations
 from .auth import login_required
 from .config import Config
 from .extensions import db
@@ -38,6 +39,7 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        migrations.run()
         seed_if_empty()
 
     return app

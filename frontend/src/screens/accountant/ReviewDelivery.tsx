@@ -3,8 +3,8 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
-import { IconAlertTriangle, IconCamera, IconCheck } from '../../components/icons'
-import { api, useApiGet } from '../../lib/api'
+import { IconAlertTriangle, IconCamera, IconCheck, IconCloud } from '../../components/icons'
+import { api, ApiError, useApiGet } from '../../lib/api'
 import type { Delivery, Project } from '../../lib/types'
 
 export function ReviewDelivery() {
@@ -12,9 +12,11 @@ export function ReviewDelivery() {
   const { data: projectData, error: projectError } = useApiGet<{ project: Project }>(
     `/api/projects/${projectId}`,
   )
-  const { data: deliveryData, error: deliveryError } = useApiGet<{ delivery: Delivery }>(
-    `/api/deliveries/${deliveryId}`,
-  )
+  const {
+    data: deliveryData,
+    error: deliveryError,
+    refetch: refetchDelivery,
+  } = useApiGet<{ delivery: Delivery }>(`/api/deliveries/${deliveryId}`)
   const navigate = useNavigate()
 
   const [vendor, setVendor] = useState('')
@@ -26,6 +28,8 @@ export function ReviewDelivery() {
   const [saving, setSaving] = useState(false)
   const [showErrors, setShowErrors] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
+  const [savingToDrive, setSavingToDrive] = useState(false)
+  const [driveError, setDriveError] = useState<string | null>(null)
 
   const delivery = deliveryData?.delivery
   const project = projectData?.project
@@ -61,6 +65,19 @@ export function ReviewDelivery() {
   if (!orderedQty.trim()) missingFields.push('ordered quantity')
   if (!quantity.trim()) missingFields.push('delivered quantity')
   if (!poNumber.trim()) missingFields.push('PO number')
+
+  async function saveToDrive() {
+    setSavingToDrive(true)
+    setDriveError(null)
+    try {
+      await api.post(`/api/deliveries/${deliveryId}/save-to-drive`)
+      refetchDelivery()
+    } catch (err) {
+      setDriveError(err instanceof ApiError ? err.message : 'Could not save to Drive')
+    } finally {
+      setSavingToDrive(false)
+    }
+  }
 
   async function save(status: 'MATCHED' | 'REVIEW') {
     if (status === 'MATCHED' && missingFields.length > 0) {
@@ -135,6 +152,33 @@ export function ReviewDelivery() {
             <div className="text-[11.5px] text-ink-muted">{project.code}</div>
           </div>
         </div>
+
+        {delivery.photoUrl && (
+          <div>
+            {driveError && <div className="text-[12px] font-semibold text-warning-text mb-1.5">{driveError}</div>}
+            {delivery.driveFileId ? (
+              <a
+                href={delivery.driveWebViewLink ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-[12.5px] font-semibold text-success-text"
+              >
+                <IconCheck size={14} stroke="var(--color-success-text)" strokeWidth={2.5} />
+                Saved to Drive — view file
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={saveToDrive}
+                disabled={savingToDrive}
+                className="flex items-center gap-1.5 text-[12.5px] font-semibold text-accent disabled:opacity-60"
+              >
+                <IconCloud size={15} stroke="var(--color-accent)" />
+                {savingToDrive ? 'Saving to Drive…' : 'Save to Drive'}
+              </button>
+            )}
+          </div>
+        )}
 
         <div>
           <div className="text-[11.5px] font-bold text-ink-muted uppercase tracking-wide mb-2">

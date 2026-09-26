@@ -26,6 +26,9 @@ export interface Delivery {
   photoUrl: string | null
   uploadedBy: string | null
   uploadedAt: string
+  driveFileId: string | null
+  driveWebViewLink: string | null
+  driveSyncedAt: string | null
 }
 
 export interface AdminUser {
@@ -54,4 +57,26 @@ export interface PasswordResetRequest {
   resolvedAt: string | null
   user: { id: number; name: string; phone: string; role: Role }
   resolvedBy: string | null
+}
+
+export interface DriveStatus {
+  configured: boolean
+  connected: boolean
+  account: {
+    email: string
+    connectedBy: string | null
+    connectedAt: string
+    sharedDriveId: string | null
+    sharedDriveName: string | null
+    rootFolderUrl: string | null
+  } | null
+}
+
+export interface SharedDrive {
+  id: string
+  name: string
+}
+
+export interface AdminDelivery extends Delivery {
+  project: { code: string; name: string; accent: ProjectAccent }
 }

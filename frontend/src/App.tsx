@@ -16,6 +16,7 @@ import { ReviewDelivery } from './screens/accountant/ReviewDelivery'
 import { AdminDashboard } from './screens/admin/Dashboard'
 import { AdminUsers } from './screens/admin/Users'
 import { AdminProjects } from './screens/admin/Projects'
+import { AdminDeliveries } from './screens/admin/Deliveries'
 
 export default function App() {
   useAutoFlushOfflineQueue()
@@ -116,6 +117,14 @@ export default function App() {
               element={
                 <RequireRole role="admin">
                   <AdminProjects />
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/admin/deliveries"
+              element={
+                <RequireRole role="admin">
+                  <AdminDeliveries />
                 </RequireRole>
               }
             />

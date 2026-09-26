@@ -6,6 +6,7 @@ const tabs = [
   { to: '/admin', label: 'Overview', end: true },
   { to: '/admin/users', label: 'Users', end: false },
   { to: '/admin/projects', label: 'Projects', end: false },
+  { to: '/admin/deliveries', label: 'Deliveries', end: false },
 ]
 
 export function AdminShell({ title, children }: { title: string; children: ReactNode }) {

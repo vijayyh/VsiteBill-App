@@ -50,6 +50,9 @@ class Project(db.Model):
     name = db.Column(db.String(200), nullable=False)
     accent = db.Column(db.String(10), nullable=False, default="accent")
 
+    drive_folder_id = db.Column(db.String(100), nullable=True)
+    drive_next_sequence = db.Column(db.Integer, nullable=False, default=1)
+
     deliveries = db.relationship("Delivery", backref="project", lazy="dynamic")
 
     def to_dict(self):
@@ -81,6 +84,10 @@ class Delivery(db.Model):
     photo_filename = db.Column(db.String(255), nullable=True)
     uploaded_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
+    drive_file_id = db.Column(db.String(100), nullable=True)
+    drive_web_view_link = db.Column(db.String(500), nullable=True)
+    drive_synced_at = db.Column(db.DateTime, nullable=True)
+
     uploaded_by = db.relationship("User")
 
     def to_dict(self):
@@ -98,6 +105,9 @@ class Delivery(db.Model):
             "photoUrl": f"/uploads/{self.photo_filename}" if self.photo_filename else None,
             "uploadedBy": self.uploaded_by.name if self.uploaded_by else None,
             "uploadedAt": self.uploaded_at.isoformat(),
+            "driveFileId": self.drive_file_id,
+            "driveWebViewLink": self.drive_web_view_link,
+            "driveSyncedAt": self.drive_synced_at.isoformat() if self.drive_synced_at else None,
         }
 
 
@@ -130,3 +140,51 @@ class PasswordResetRequest(db.Model):
             },
             "resolvedBy": self.resolved_by.name if self.resolved_by else None,
         }
+
+
+class GoogleDriveAccount(db.Model):
+    """Single-row table: the one Google account the admin has connected for Drive
+    sync. Every accountant's "Save to Drive" writes through this same account —
+    there's no per-user Google login here, by design (see the app's Drive-sync plan)."""
+
+    __tablename__ = "google_drive_account"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False)
+    refresh_token = db.Column(db.Text, nullable=False)
+    root_folder_id = db.Column(db.String(100), nullable=True)
+    shared_drive_id = db.Column(db.String(100), nullable=True)
+    shared_drive_name = db.Column(db.String(255), nullable=True)
+    connected_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    connected_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    connected_by = db.relationship("User")
+
+    def to_dict(self):
+        return {
+            "email": self.email,
+            "connectedBy": self.connected_by.name if self.connected_by else None,
+            "connectedAt": self.connected_at.isoformat(),
+            "sharedDriveId": self.shared_drive_id,
+            "sharedDriveName": self.shared_drive_name,
+            "rootFolderUrl": (
+                f"https://drive.google.com/drive/folders/{self.root_folder_id}"
+                if self.root_folder_id
+                else None
+            ),
+        }
+
+
+class DriveOAuthState(db.Model):
+    """Short-lived handoff row bridging the two separate HTTP requests in the
+    OAuth dance (/drive/connect and /drive/callback): carries the PKCE code
+    verifier and which admin started the flow, keyed by the random "state"
+    value round-tripped through Google. Rows are deleted as soon as they're
+    consumed."""
+
+    __tablename__ = "drive_oauth_state"
+
+    state = db.Column(db.String(64), primary_key=True)
+    code_verifier = db.Column(db.String(255), nullable=False)
+    admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)

@@ -1,7 +1,6 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, jsonify
-from sqlalchemy import func
 
 from ..auth import login_required
 from ..extensions import db
@@ -16,10 +15,16 @@ def stats():
     to_review = Delivery.query.filter(Delivery.status.in_(["REVIEW", "PENDING"])).count()
     discrepancies = Delivery.query.filter_by(status="REVIEW").count()
 
+    # A plain >= / < range on the timestamp column (rather than e.g. SQLite's
+    # strftime()) so this query works unchanged on both SQLite (dev) and
+    # Postgres (production).
     now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    next_month_start = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
     matched_mtd = Delivery.query.filter(
         Delivery.status == "MATCHED",
-        func.strftime("%Y-%m", Delivery.uploaded_at) == now.strftime("%Y-%m"),
+        Delivery.uploaded_at >= month_start,
+        Delivery.uploaded_at < next_month_start,
     ).count()
 
     return jsonify(

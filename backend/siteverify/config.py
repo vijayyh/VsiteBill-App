@@ -17,7 +17,12 @@ def _normalize_database_url(url: str) -> str:
     # Some providers (Render's connection string included, historically Heroku's)
     # hand out "postgres://", but SQLAlchemy 2.x only recognizes "postgresql://".
     if url.startswith("postgres://"):
-        return "postgresql://" + url[len("postgres://") :]
+        url = "postgresql://" + url[len("postgres://") :]
+    # Pin the driver to psycopg2 (installed via requirements.txt) explicitly —
+    # a bare "postgresql://" lets SQLAlchemy pick a default driver, which can
+    # resolve to psycopg (v3, not installed) instead.
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://") :]
     return url
 
 

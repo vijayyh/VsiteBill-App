@@ -31,7 +31,7 @@ export function DeliveryDetails() {
   const missingFields: string[] = []
   if (!vendor.trim()) missingFields.push('vendor')
   if (!item.trim()) missingFields.push('item description')
-  if (!quantity.trim()) missingFields.push('quantity')
+  if (!quantity.trim()) missingFields.push('quantity delivered')
 
   async function handleSubmit() {
     if (missingFields.length > 0) {
@@ -72,7 +72,7 @@ export function DeliveryDetails() {
 
   return (
     <div className="flex flex-col flex-grow text-ink">
-      <ScreenHeader backTo={`/supervisor/projects/${projectId}/upload`} title="Delivery details" />
+      <ScreenHeader backTo={`/supervisor/projects/${projectId}/upload`} title="Bill details" />
 
       <div className="flex-grow overflow-y-auto px-4 py-3.5 flex flex-col gap-3.5">
         <div className="w-full aspect-[4/3] rounded-card bg-camera-bg overflow-hidden">
@@ -80,7 +80,7 @@ export function DeliveryDetails() {
         </div>
 
         <div className="text-[12.5px] text-ink-muted leading-relaxed">
-          Fill in what's on the bill — the office team will verify it against the purchase order.
+          Copy these from the bill. The office team will check them against the purchase order.
         </div>
 
         {error && <div className="text-[12.5px] font-semibold text-warning-text">{error}</div>}
@@ -122,7 +122,7 @@ export function DeliveryDetails() {
           <div className="grid grid-cols-2 gap-2.5">
             <div>
               <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="qty">
-                Quantity
+                Quantity delivered
               </label>
               <input
                 id="qty"
@@ -157,7 +157,7 @@ export function DeliveryDetails() {
           disabled={uploading}
           className="w-full text-center py-4 rounded-btn bg-accent text-white text-[15px] font-bold disabled:opacity-60"
         >
-          {uploading ? 'Submitting…' : 'Submit delivery'}
+          {uploading ? 'Sending…' : 'Send to office'}
         </button>
       </div>
     </div>

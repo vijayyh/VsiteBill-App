@@ -3,8 +3,10 @@ import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
+import { StatusBadge } from '../../components/StatusBadge'
 import { IconAlertTriangle, IconCamera, IconCheck, IconCloud } from '../../components/icons'
 import { api, ApiError, useApiGet } from '../../lib/api'
+import { formatDateTime } from '../../lib/format'
 import type { Delivery, Project } from '../../lib/types'
 
 export function ReviewDelivery() {
@@ -48,7 +50,7 @@ export function ReviewDelivery() {
   if (!delivery || !project) {
     return (
       <div className="flex flex-col flex-grow text-ink">
-        <ScreenHeader backTo={`/accountant/projects/${projectId}/gallery`} title="Review Delivery" />
+        <ScreenHeader backTo={`/accountant/projects/${projectId}/gallery`} title="Review bill" />
         <div className="flex-grow flex items-center justify-center text-sm text-ink-muted">Loading…</div>
       </div>
     )
@@ -104,7 +106,11 @@ export function ReviewDelivery() {
 
   return (
     <div className="flex flex-col flex-grow text-ink">
-      <ScreenHeader backTo={`/accountant/projects/${project.id}/gallery`} title="Review Delivery" />
+      <ScreenHeader
+        backTo={`/accountant/projects/${project.id}/gallery`}
+        title="Review bill"
+        subtitle={`${project.code} · ${project.name}`}
+      />
 
       <div className="flex-grow overflow-y-auto px-4 py-3.5 flex flex-col gap-3.5">
         <div className="flex gap-2.5">
@@ -130,26 +136,27 @@ export function ReviewDelivery() {
               </button>
             )}
           </div>
-          <div className="flex-grow flex flex-col justify-center gap-1">
-            <div className="flex items-center gap-2">
+          <div className="flex-grow flex flex-col justify-center gap-1.5 min-w-0">
+            <div>
+              <StatusBadge status={delivery.status} />
+            </div>
+            <div className="flex items-center gap-1.5">
               {hasDiscrepancy ? (
                 <>
                   <IconAlertTriangle size={14} stroke="var(--color-warning-text)" strokeWidth={2.5} />
-                  <div className="text-[13px] font-bold text-warning-text">Shortfall flagged</div>
+                  <div className="text-[13px] font-bold text-warning-text">Quantity mismatch</div>
                 </>
               ) : (
                 <>
                   <IconCheck size={14} stroke="var(--color-success-text)" strokeWidth={2.5} />
-                  <div className="text-[13px] font-bold text-success-text">Quantities matched</div>
+                  <div className="text-[13px] font-bold text-success-text">Quantities match</div>
                 </>
               )}
             </div>
-            {delivery.uploadedBy && (
-              <div className="text-[11.5px] text-ink-muted">
-                Uploaded by {delivery.uploadedBy}, {new Date(delivery.uploadedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </div>
-            )}
-            <div className="text-[11.5px] text-ink-muted">{project.code}</div>
+            <div className="text-[11.5px] text-ink-muted">
+              {delivery.uploadedBy ? `Uploaded by ${delivery.uploadedBy}` : 'Uploaded'} ·{' '}
+              {formatDateTime(delivery.uploadedAt)}
+            </div>
           </div>
         </div>
 
@@ -182,7 +189,7 @@ export function ReviewDelivery() {
 
         <div>
           <div className="text-[11.5px] font-bold text-ink-muted uppercase tracking-wide mb-2">
-            Extracted from challan
+            Bill details
           </div>
           <div className="flex flex-col gap-2.5">
             <div>
@@ -233,7 +240,7 @@ export function ReviewDelivery() {
                   </label>
                   {delivery.quantityLowConfidence && (
                     <span className="text-[9px] font-bold text-warning-text bg-warning-bg rounded px-[5px] py-px">
-                      CHECK
+                      DOUBLE-CHECK
                     </span>
                   )}
                 </div>
@@ -281,7 +288,7 @@ export function ReviewDelivery() {
             </div>
             <div>
               <div className={`text-[11px] mb-1 ${hasDiscrepancy ? 'text-warning-text' : 'text-success-text'}`}>
-                {diff > 0 ? 'Short by' : diff < 0 ? 'Over by' : 'Match'}
+                {diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference'}
               </div>
               <div className={`text-[19px] font-bold ${hasDiscrepancy ? 'text-warning-text' : 'text-success-text'}`}>
                 {Math.abs(diff)}
@@ -297,7 +304,7 @@ export function ReviewDelivery() {
           <textarea
             id="note"
             rows={2}
-            placeholder="e.g. call vendor to confirm remainder"
+            placeholder="e.g. Short by 10 bags — vendor to send the remainder"
             className="w-full rounded-field border border-border-strong px-[11px] py-2.5 text-xs bg-surface resize-none focus:outline-2 focus:outline-accent focus:outline-offset-1"
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -317,14 +324,14 @@ export function ReviewDelivery() {
             disabled={saving}
             className="flex-grow py-3 rounded-btn border border-border-strong text-ink text-[13.5px] font-semibold disabled:opacity-60"
           >
-            Flag for follow-up
+            {delivery.status === 'REVIEW' ? 'Keep flagged' : 'Flag for follow-up'}
           </button>
           <button
             onClick={() => save('MATCHED')}
             disabled={saving}
             className="flex-grow py-3 rounded-btn bg-accent text-white text-[13.5px] font-bold disabled:opacity-60"
           >
-            Confirm match
+            {delivery.status === 'MATCHED' ? 'Save as matched' : 'Confirm match'}
           </button>
         </div>
       </div>

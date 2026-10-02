@@ -4,6 +4,7 @@ from flask import Blueprint, g, jsonify, request
 from sqlalchemy import func
 
 from ..auth import login_required
+from ..extensions import db
 from ..models import Delivery, Project
 
 bp = Blueprint("projects", __name__, url_prefix="/api/projects")
@@ -12,11 +13,18 @@ bp = Blueprint("projects", __name__, url_prefix="/api/projects")
 @bp.get("")
 @login_required
 def list_projects():
-    projects = Project.query.order_by(Project.code).all()
+    counts = {
+        (project_id, status): n
+        for project_id, status, n in db.session.query(Delivery.project_id, Delivery.status, func.count())
+        .group_by(Delivery.project_id, Delivery.status)
+        .all()
+    }
     result = []
-    for p in projects:
+    for p in Project.query.order_by(Project.code).all():
         data = p.to_dict()
-        data["toReview"] = p.deliveries.filter(Delivery.status.in_(["REVIEW", "PENDING"])).count()
+        data["pendingCount"] = counts.get((p.id, "PENDING"), 0)
+        data["flaggedCount"] = counts.get((p.id, "REVIEW"), 0)
+        data["matchedCount"] = counts.get((p.id, "MATCHED"), 0)
         result.append(data)
     return jsonify({"projects": result})
 

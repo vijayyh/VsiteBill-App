@@ -28,12 +28,12 @@ export function UploadSuccess() {
         </div>
 
         <div className="text-xl font-bold mb-2">
-          {queued ? 'Saved on this device' : 'Delivery photo uploaded'}
+          {queued ? 'Saved on this phone' : 'Bill sent to the office'}
         </div>
         <div className="text-[13.5px] text-ink-muted leading-relaxed mb-[26px]">
           {queued ? (
             <>
-              No signal right now — this will send to {project?.code} automatically the moment you're back online.
+              No signal right now. It will send to {project?.code} by itself as soon as you're back online.
             </>
           ) : (
             <>
@@ -46,8 +46,8 @@ export function UploadSuccess() {
 
         <div className="w-full bg-surface border border-border rounded-card px-4 py-[13px] text-xs text-ink-muted leading-relaxed">
           {queued
-            ? "You don't need to do anything else — keep the app open or come back later and it'll finish sending on its own once you have signal."
-            : 'The office team will review this against the purchase order. No further action needed from you right now.'}
+            ? "Nothing else to do. Keep the app open, or come back later, and it will finish sending once you have signal."
+            : 'The office team will check it against the purchase order. Nothing more needed from you.'}
         </div>
       </div>
 
@@ -62,7 +62,7 @@ export function UploadSuccess() {
           to={`/supervisor/projects/${projectId}/upload`}
           className="block w-full text-center py-3.5 rounded-btn border border-border-strong text-ink text-sm font-semibold"
         >
-          Add another delivery
+          Add another bill
         </Link>
       </div>
     </div>

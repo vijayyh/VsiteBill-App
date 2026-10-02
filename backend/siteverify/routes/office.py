@@ -12,8 +12,8 @@ bp = Blueprint("office", __name__, url_prefix="/api/office")
 @bp.get("/stats")
 @login_required
 def stats():
-    to_review = Delivery.query.filter(Delivery.status.in_(["REVIEW", "PENDING"])).count()
-    discrepancies = Delivery.query.filter_by(status="REVIEW").count()
+    pending = Delivery.query.filter_by(status="PENDING").count()
+    flagged = Delivery.query.filter_by(status="REVIEW").count()
 
     # A plain >= / < range on the timestamp column (rather than e.g. SQLite's
     # strftime()) so this query works unchanged on both SQLite (dev) and
@@ -29,8 +29,8 @@ def stats():
 
     return jsonify(
         {
-            "toReview": to_review,
-            "discrepancies": discrepancies,
-            "matchedMTD": matched_mtd,
+            "pending": pending,
+            "flagged": flagged,
+            "matchedThisMonth": matched_mtd,
         }
     )

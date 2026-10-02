@@ -7,7 +7,13 @@ export interface Project {
   code: string
   name: string
   accent: ProjectAccent
-  toReview: number
+}
+
+/** A project as returned by the GET /api/projects list, with per-status bill counts. */
+export interface ProjectSummary extends Project {
+  pendingCount: number
+  flaggedCount: number
+  matchedCount: number
 }
 
 export type DeliveryStatus = 'PENDING' | 'REVIEW' | 'MATCHED'

@@ -9,6 +9,17 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def iso_utc(dt):
+    # Timestamps are written in UTC but the DateTime columns are timezone-naive,
+    # so they read back without an offset — and a browser parses an offset-less
+    # ISO string as *local* time (5h30m off in IST). Mark them as UTC explicitly.
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -38,7 +49,7 @@ class User(db.Model):
         return {
             **self.to_dict(),
             "phone": self.phone,
-            "createdAt": self.created_at.isoformat(),
+            "createdAt": iso_utc(self.created_at),
         }
 
 
@@ -104,10 +115,10 @@ class Delivery(db.Model):
             "note": self.note,
             "photoUrl": f"/uploads/{self.photo_filename}" if self.photo_filename else None,
             "uploadedBy": self.uploaded_by.name if self.uploaded_by else None,
-            "uploadedAt": self.uploaded_at.isoformat(),
+            "uploadedAt": iso_utc(self.uploaded_at),
             "driveFileId": self.drive_file_id,
             "driveWebViewLink": self.drive_web_view_link,
-            "driveSyncedAt": self.drive_synced_at.isoformat() if self.drive_synced_at else None,
+            "driveSyncedAt": iso_utc(self.drive_synced_at),
         }
 
 
@@ -130,8 +141,8 @@ class PasswordResetRequest(db.Model):
             "id": self.id,
             "status": self.status,
             "note": self.note,
-            "createdAt": self.created_at.isoformat(),
-            "resolvedAt": self.resolved_at.isoformat() if self.resolved_at else None,
+            "createdAt": iso_utc(self.created_at),
+            "resolvedAt": iso_utc(self.resolved_at),
             "user": {
                 "id": self.user.id,
                 "name": self.user.name,
@@ -164,7 +175,7 @@ class GoogleDriveAccount(db.Model):
         return {
             "email": self.email,
             "connectedBy": self.connected_by.name if self.connected_by else None,
-            "connectedAt": self.connected_at.isoformat(),
+            "connectedAt": iso_utc(self.connected_at),
             "sharedDriveId": self.shared_drive_id,
             "sharedDriveName": self.shared_drive_name,
             "rootFolderUrl": (

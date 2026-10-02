@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { IconTruck } from '../../components/icons'
+import { IconChevronRight, IconTruck } from '../../components/icons'
 import { useSession } from '../../lib/session'
 import { useApiGet } from '../../lib/api'
-import type { Project, ProjectAccent } from '../../lib/types'
+import { greeting } from '../../lib/format'
+import { STATUS_META } from '../../lib/status'
+import type { ProjectAccent, ProjectSummary } from '../../lib/types'
 
 const accentBg: Record<ProjectAccent, string> = {
   accent: 'bg-accent',
@@ -11,29 +13,64 @@ const accentBg: Record<ProjectAccent, string> = {
 }
 
 interface OfficeStats {
-  toReview: number
-  discrepancies: number
-  matchedMTD: number
+  pending: number
+  flagged: number
+  matchedThisMonth: number
+}
+
+function CountChip({ label, className }: { label: string; className: string }) {
+  return <span className={`text-[10.5px] font-bold rounded-full px-2 py-[3px] whitespace-nowrap ${className}`}>{label}</span>
+}
+
+function ProjectCounts({ project }: { project: ProjectSummary }) {
+  const { pendingCount, flaggedCount, matchedCount } = project
+  const pending = STATUS_META.PENDING
+  const flagged = STATUS_META.REVIEW
+  const matched = STATUS_META.MATCHED
+
+  if (pendingCount === 0 && flaggedCount === 0) {
+    return matchedCount > 0 ? (
+      <CountChip label="All matched" className={`${matched.text} ${matched.bg}`} />
+    ) : (
+      <CountChip label="No bills yet" className="text-ink-muted bg-surface-alt" />
+    )
+  }
+  return (
+    <>
+      {pendingCount > 0 && <CountChip label={`${pendingCount} pending`} className={`${pending.text} ${pending.bg}`} />}
+      {flaggedCount > 0 && <CountChip label={`${flaggedCount} flagged`} className={`${flagged.text} ${flagged.bg}`} />}
+    </>
+  )
 }
 
 export function AccountantDashboard() {
   const { user, logout } = useSession()
   const navigate = useNavigate()
-  const { data: projectsData, loading, error } = useApiGet<{ projects: Project[] }>('/api/projects')
+  const { data: projectsData, loading, error } = useApiGet<{ projects: ProjectSummary[] }>('/api/projects')
   const { data: stats } = useApiGet<OfficeStats>('/api/office/stats')
 
+  const tiles = [
+    { label: 'Pending', value: stats?.pending, meta: STATUS_META.PENDING },
+    { label: 'Flagged', value: stats?.flagged, meta: STATUS_META.REVIEW },
+    { label: 'Matched this month', value: stats?.matchedThisMonth, meta: STATUS_META.MATCHED },
+  ]
+
   return (
-    <div className="flex flex-col flex-grow text-ink">
+    <div className="flex flex-col flex-grow min-h-0 text-ink">
       <div className="flex-shrink-0 px-5 pt-5 pb-4 bg-surface border-b border-border">
-        <div className="text-xs text-ink-muted font-medium">Office review</div>
+        <div className="text-xs text-ink-muted font-medium">{greeting()}</div>
         <div className="flex items-center justify-between mt-0.5">
-          <div className="text-xl font-bold">{user?.name}</div>
+          <div>
+            <div className="text-xl font-bold">{user?.name}</div>
+            <div className="text-[11.5px] text-ink-muted mt-px">Office · bill review</div>
+          </div>
           <button
             onClick={() => {
               logout()
               navigate('/login')
             }}
             aria-label="Log out"
+            title="Log out"
             className="w-[38px] h-[38px] rounded-full bg-avatar-bg flex items-center justify-center text-[13px] font-bold text-accent"
           >
             {user?.initials}
@@ -42,18 +79,15 @@ export function AccountantDashboard() {
       </div>
 
       <div className="flex-shrink-0 px-4 pt-4 pb-1 grid grid-cols-3 gap-2.5">
-        <div className="bg-surface border border-border rounded-card py-[13px] px-2.5 text-center">
-          <div className="text-xl font-bold">{stats?.toReview ?? '–'}</div>
-          <div className="text-[10.5px] text-ink-muted mt-0.5">To review</div>
-        </div>
-        <div className="bg-warning-bg border border-warning-border rounded-card py-[13px] px-2.5 text-center">
-          <div className="text-xl font-bold text-warning-text">{stats?.discrepancies ?? '–'}</div>
-          <div className="text-[10.5px] text-warning-text mt-0.5">Discrepancies</div>
-        </div>
-        <div className="bg-success-bg border border-success-border rounded-card py-[13px] px-2.5 text-center">
-          <div className="text-xl font-bold text-success-text">{stats?.matchedMTD ?? '–'}</div>
-          <div className="text-[10.5px] text-success-text mt-0.5">Matched, MTD</div>
-        </div>
+        {tiles.map((tile) => (
+          <div
+            key={tile.label}
+            className={`border rounded-card py-3 px-2 text-center ${tile.meta.bg} ${tile.meta.border}`}
+          >
+            <div className={`text-[22px] font-bold leading-none ${tile.meta.text}`}>{tile.value ?? '–'}</div>
+            <div className={`text-[10.5px] font-semibold mt-1.5 leading-tight ${tile.meta.text}`}>{tile.label}</div>
+          </div>
+        ))}
       </div>
 
       <div className="flex-grow overflow-y-auto px-4 py-[18px]">
@@ -67,24 +101,21 @@ export function AccountantDashboard() {
             <Link
               key={project.id}
               to={`/accountant/projects/${project.id}/gallery`}
-              className="flex items-center gap-3 bg-surface border border-border rounded-card p-[15px]"
+              className="flex items-center gap-3 bg-surface border border-border rounded-card p-[14px] shadow-[0_1px_2px_rgba(20,24,26,0.04)]"
             >
               <div
                 className={`w-11 h-11 rounded-btn flex items-center justify-center flex-shrink-0 ${accentBg[project.accent]}`}
               >
                 <IconTruck size={18} stroke="#FFFFFF" />
               </div>
-              <div className="flex-grow">
+              <div className="flex-grow min-w-0">
                 <div className="text-sm font-bold">{project.code}</div>
-                <div className="text-xs text-ink-muted mt-px">{project.name}</div>
+                <div className="text-xs text-ink-muted mt-px truncate">{project.name}</div>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <ProjectCounts project={project} />
+                </div>
               </div>
-              <div
-                className={`text-[11px] font-bold rounded-md px-2 py-1 whitespace-nowrap ${
-                  project.toReview > 0 ? 'text-warning-text bg-warning-bg' : 'text-ink-muted bg-surface-alt'
-                }`}
-              >
-                {project.toReview} to review
-              </div>
+              <IconChevronRight size={18} stroke="var(--color-ink-faint)" />
             </Link>
           ))}
         </div>

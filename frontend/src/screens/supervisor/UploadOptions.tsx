@@ -37,8 +37,10 @@ export function UploadOptions() {
 
       <div className="absolute left-0 right-0 bottom-0 bg-surface rounded-t-sheet px-5 pt-2.5 pb-[30px] shadow-[0_-4px_20px_rgba(20,24,26,0.12)]">
         <div className="w-9 h-1 rounded-full bg-border-strong mx-auto mb-[18px]" />
-        <div className="text-base font-bold mb-1">Add delivery photo</div>
-        <div className="text-[12.5px] text-ink-muted mb-5">Choose how you want to add the challan</div>
+        <div className="text-base font-bold mb-1">Add a bill</div>
+        <div className="text-[12.5px] text-ink-muted mb-5">
+          Photograph the delivery challan, or pick a photo you've already taken.
+        </div>
 
         <div className="flex flex-col gap-2.5">
           <button
@@ -49,8 +51,8 @@ export function UploadOptions() {
               <IconCamera size={20} stroke="#FFFFFF" />
             </div>
             <div className="flex-grow">
-              <div className="text-[14.5px] font-bold">Click photo</div>
-              <div className="text-xs text-ink-muted mt-px">Opens your camera directly</div>
+              <div className="text-[14.5px] font-bold">Take a photo</div>
+              <div className="text-xs text-ink-muted mt-px">Opens the camera</div>
             </div>
           </button>
           <input
@@ -70,8 +72,8 @@ export function UploadOptions() {
               <IconGallery size={20} stroke="var(--color-ink)" />
             </div>
             <div className="flex-grow">
-              <div className="text-[14.5px] font-bold">Upload from gallery</div>
-              <div className="text-xs text-ink-muted mt-px">Choose an existing photo</div>
+              <div className="text-[14.5px] font-bold">Choose from gallery</div>
+              <div className="text-xs text-ink-muted mt-px">Use a photo already on this phone</div>
             </div>
           </button>
           <input

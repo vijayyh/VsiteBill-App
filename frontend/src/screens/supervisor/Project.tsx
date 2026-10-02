@@ -5,12 +5,9 @@ import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { IconCamera, IconCheck, IconClock } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
+import { formatTime } from '../../lib/format'
 import { subscribeQueue, useQueuedUploads } from '../../lib/offlineQueue'
 import type { Delivery, Project } from '../../lib/types'
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-}
 
 function QueuedPhotoThumb({ blob }: { blob: Blob }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -58,15 +55,15 @@ export function SupervisorProject() {
           className="flex items-center justify-center gap-2.5 w-full py-5 rounded-cta bg-accent text-white"
         >
           <IconCamera size={24} stroke="#FFFFFF" />
-          <div className="text-base font-bold">Add delivery photo</div>
+          <div className="text-base font-bold">Add a bill</div>
         </Link>
       </div>
 
       <div className="flex-grow overflow-y-auto px-4 py-3.5">
-        <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Today's uploads</div>
+        <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Your bills today</div>
 
         {deliveriesLoading && <div className="text-sm text-ink-muted">Loading…</div>}
-        {nothingYet && <div className="text-sm text-ink-muted">Nothing uploaded yet today.</div>}
+        {nothingYet && <div className="text-sm text-ink-muted">You haven't added any bills today.</div>}
 
         <div className="flex flex-col gap-[9px]">
           {queued.map((item) => (
@@ -77,13 +74,13 @@ export function SupervisorProject() {
               <div className="w-10 h-10 rounded-lg bg-surface-alt flex-shrink-0 overflow-hidden">
                 <QueuedPhotoThumb blob={item.blob} />
               </div>
-              <div className="flex-grow">
-                <div className="text-[13.5px] font-semibold">Delivery photo</div>
+              <div className="flex-grow min-w-0">
+                <div className="text-[13.5px] font-semibold truncate">{item.vendor || 'Bill photo'}</div>
                 <div className="text-[11.5px] text-ink-faint mt-px">{formatTime(item.createdAt)}</div>
               </div>
               <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-warning-text">
                 <IconClock size={13} stroke="var(--color-warning-text)" strokeWidth={2.5} />
-                Queued
+                Waiting for signal
               </div>
             </div>
           ))}
@@ -102,20 +99,20 @@ export function SupervisorProject() {
                   <AuthImage src={delivery.photoUrl} className="w-full h-full object-cover" />
                 )}
               </button>
-              <div className="flex-grow">
-                <div className="text-[13.5px] font-semibold">{delivery.vendor || 'Delivery photo'}</div>
+              <div className="flex-grow min-w-0">
+                <div className="text-[13.5px] font-semibold truncate">{delivery.vendor || 'Bill photo'}</div>
                 <div className="text-[11.5px] text-ink-faint mt-px">{formatTime(delivery.uploadedAt)}</div>
               </div>
-              <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-ink-muted">
-                <IconCheck size={13} stroke="var(--color-ink-muted)" strokeWidth={2.5} />
-                Uploaded
+              <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-success-text">
+                <IconCheck size={13} stroke="var(--color-success-text)" strokeWidth={2.5} />
+                Sent to office
               </div>
             </div>
           ))}
         </div>
 
         <div className="text-xs text-ink-faint text-center mt-4 leading-relaxed">
-          The office team reviews and matches these against purchase orders.
+          The office team checks each bill against its purchase order.
         </div>
       </div>
 

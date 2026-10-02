@@ -35,6 +35,9 @@
   --color-warning-bg: #fdf2e0;
   --color-warning-border: #e0ab52;
   --color-warning-text: #8a5300;
+  --color-info-bg: #e9eff6;
+  --color-info-border: #bccbdc;
+  --color-info-text: #1a3c5e;
   --color-avatar-bg: #e8ecef;
 
   /* Camera surfaces */

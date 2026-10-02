@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { IconChevronRight, IconTruck } from '../../components/icons'
 import { useSession } from '../../lib/session'
 import { useApiGet } from '../../lib/api'
+import { greeting } from '../../lib/format'
 import type { Project, ProjectAccent } from '../../lib/types'
 
 const accentBg: Record<ProjectAccent, string> = {
@@ -18,15 +19,19 @@ export function SupervisorDashboard() {
   return (
     <div className="flex flex-col flex-grow text-ink">
       <div className="flex-shrink-0 px-5 pt-5 pb-4 bg-surface border-b border-border">
-        <div className="text-xs text-ink-muted font-medium">Good morning</div>
+        <div className="text-xs text-ink-muted font-medium">{greeting()}</div>
         <div className="flex items-center justify-between mt-0.5">
-          <div className="text-xl font-bold">{user?.name}</div>
+          <div>
+            <div className="text-xl font-bold">{user?.name}</div>
+            <div className="text-[11.5px] text-ink-muted mt-px">Site supervisor</div>
+          </div>
           <button
             onClick={() => {
               logout()
               navigate('/login')
             }}
             aria-label="Log out"
+            title="Log out"
             className="w-[38px] h-[38px] rounded-full bg-avatar-bg flex items-center justify-center text-[13px] font-bold text-accent"
           >
             {user?.initials}
@@ -35,7 +40,9 @@ export function SupervisorDashboard() {
       </div>
 
       <div className="flex-grow overflow-y-auto px-4 py-[18px]">
-        <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Your projects</div>
+        <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">
+          Choose a project to add a bill
+        </div>
 
         {loading && <div className="text-sm text-ink-muted">Loading projects…</div>}
         {error && <div className="text-sm text-warning-text">{error}</div>}

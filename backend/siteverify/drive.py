@@ -27,6 +27,7 @@ from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
+from . import storage
 from .extensions import db
 from .models import Delivery, DriveOAuthState, GoogleDriveAccount, Project
 
@@ -296,9 +297,7 @@ def upload_delivery_photo(project: Project, delivery: Delivery) -> Delivery:
     sequence = project.drive_next_sequence
     filename = build_filename(project, delivery, sequence, ext)
 
-    local_path = current_app.config["UPLOAD_DIR"] / delivery.photo_filename
-    with open(local_path, "rb") as f:
-        data = f.read()
+    data = storage.read_photo(delivery.photo_filename)
 
     media = MediaIoBaseUpload(io.BytesIO(data), mimetype=f"image/{ext if ext != 'jpg' else 'jpeg'}")
     file = (

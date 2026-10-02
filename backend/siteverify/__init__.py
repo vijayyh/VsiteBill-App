@@ -1,6 +1,7 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, redirect, send_from_directory
 from flask_cors import CORS
 
+from . import storage
 from .auth import login_required
 from .config import Config
 from .extensions import db, migrate
@@ -31,6 +32,8 @@ def create_app() -> Flask:
     @app.get("/uploads/<path:filename>")
     @login_required
     def uploaded_file(filename):
+        if storage.configured():
+            return redirect(storage.presigned_url(filename))
         return send_from_directory(app.config["UPLOAD_DIR"], filename)
 
     @app.get("/api/health")

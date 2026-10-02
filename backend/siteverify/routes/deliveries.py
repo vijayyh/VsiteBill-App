@@ -3,7 +3,7 @@ import uuid
 from flask import Blueprint, current_app, g, jsonify, request
 from werkzeug.utils import secure_filename
 
-from .. import drive
+from .. import drive, storage
 from ..auth import login_required
 from ..extensions import db
 from ..models import Delivery, Project
@@ -27,9 +27,7 @@ def create_delivery(project_id):
     ext = secure_filename(photo.filename).rsplit(".", 1)[-1].lower() if "." in photo.filename else "jpg"
     filename = f"{uuid.uuid4().hex}.{ext}"
 
-    upload_dir = current_app.config["UPLOAD_DIR"]
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    photo.save(upload_dir / filename)
+    storage.save_photo(photo, filename)
 
     def form_float(key):
         raw = request.form.get(key)

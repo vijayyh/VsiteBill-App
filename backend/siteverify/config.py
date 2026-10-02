@@ -45,3 +45,13 @@ class Config:
     )
     # Where the OAuth callback sends the admin's browser back to when it's done.
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+
+    # S3-compatible object storage for delivery photos (Supabase Storage,
+    # Backblaze B2, Cloudflare R2, AWS S3, ...) — see siteverify/storage.py.
+    # Left unset in local dev, which falls back to reading/writing UPLOAD_DIR
+    # on local disk instead.
+    S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "")
+    S3_ACCESS_KEY_ID = os.environ.get("S3_ACCESS_KEY_ID", "")
+    S3_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_ACCESS_KEY", "")
+    S3_BUCKET = os.environ.get("S3_BUCKET", "")
+    S3_REGION = os.environ.get("S3_REGION", "us-east-1")

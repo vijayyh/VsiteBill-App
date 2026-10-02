@@ -6,7 +6,7 @@ services:
     plan: 0.5c-512mb
     rootDir: backend
     buildCommand: pip install -r requirements.txt gunicorn psycopg2-binary
-    startCommand: gunicorn app:app
+    startCommand: flask db upgrade && gunicorn app:app
     healthCheckPath: /api/health
     envVars:
       - key: JWT_SECRET
@@ -22,6 +22,16 @@ services:
       - key: GOOGLE_REDIRECT_URI
         sync: false
       - key: FRONTEND_URL
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
         sync: false
     disk:
       name: delivery-uploads

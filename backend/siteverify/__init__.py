@@ -1,10 +1,9 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
-from . import migrations
 from .auth import login_required
 from .config import Config
-from .extensions import db
+from .extensions import db, migrate
 from .seed import seed_if_empty
 
 
@@ -15,6 +14,7 @@ def create_app() -> Flask:
     CORS(app, resources={r"/api/*": {"origins": "*"}, r"/uploads/*": {"origins": "*"}})
 
     db.init_app(app)
+    migrate.init_app(app, db)
 
     from .routes.admin import bp as admin_bp
     from .routes.auth import bp as auth_bp
@@ -37,9 +37,10 @@ def create_app() -> Flask:
     def health():
         return jsonify({"status": "ok"})
 
+    from sqlalchemy import inspect
+
     with app.app_context():
-        db.create_all()
-        migrations.run()
-        seed_if_empty()
+        if inspect(db.engine).has_table("users"):
+            seed_if_empty()
 
     return app

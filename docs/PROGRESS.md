@@ -56,7 +56,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 3 | Secrets management review | Skipped for now |
 | 4 | Auth hardening: rate-limit login, short-lived tokens + refresh, lock down CORS | Skipped for now |
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
-| 6 | CI/CD: GitHub Actions runs tests before deploy | ⏭ Next |
+| 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Not started |
 | 8 | OCR on bill photos | Not started (provider undecided) |
 | 9 | Scaling | Not started |
@@ -66,6 +66,14 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-03 — Roadmap step 6: CI/CD
+
+- `.github/workflows/ci.yml` runs on every push to `main` and every pull request. Two jobs: backend
+  `pytest` on Python 3.14, and frontend `npm ci` + `npm run lint` + `npm run build` on Node 24.
+- Render's auto-deploy for **both** services should be set to "After CI checks pass" (Render →
+  service → Settings → Deploy → Auto-Deploy). This is done by hand in the dashboard; `render.yaml`
+  records it as `autoDeployTrigger: checksPass`.
 
 ### 2026-10-03 — Roadmap step 5: automated tests
 

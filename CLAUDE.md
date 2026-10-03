@@ -48,6 +48,10 @@ bug fix. Tests build their own temporary database via the migrations, through
 `create_app(test_config)` in `conftest.py`, and blank the S3/Google settings, so they never touch
 real storage.
 
+CI (`.github/workflows/ci.yml`) runs the backend tests plus the frontend `npm run lint` and
+`npm run build` on every push, and Render only deploys after it passes. Run the same commands
+locally before pushing. A red CI run means the live site did **not** update.
+
 ## Gotchas that have bitten before
 
 - **Backend auto-reload is off** (`use_reloader=False` in `backend/app.py`, because Werkzeug left

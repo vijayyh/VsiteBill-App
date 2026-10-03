@@ -156,9 +156,12 @@ admin user/password/project management, and a check that the migrations match `m
 
 ## Deploying
 
-Push to `main`. Render rebuilds both services automatically: the frontend static site
-`vsitebill-app` and the API `vsitebill-api`. The API's start command runs `flask db upgrade`
-before starting gunicorn.
+Push to `main`. GitHub Actions (`.github/workflows/ci.yml`) then runs the backend tests and the
+frontend lint, type check and build. You'll see ✅ or ❌ next to the commit on GitHub, and an email
+if it fails. Render is set to **deploy only after those checks pass**, so a failing push never
+reaches the live site; the last working version keeps running until a fix is pushed. Both services
+then rebuild: the frontend static site `vsitebill-app` and the API `vsitebill-api`. The API's start
+command runs `flask db upgrade` before starting gunicorn.
 
 Production settings (env vars, start command) are managed in the **Render dashboard**. `render.yaml`
 documents them but isn't applied automatically.

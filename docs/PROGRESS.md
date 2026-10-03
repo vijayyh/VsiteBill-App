@@ -9,15 +9,16 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-03 (office machine)_
 
-**State:** Production-readiness roadmap steps 1 (database migrations) and 2 (photo storage) are
-done and deployed. Production now runs on real Postgres and stores bill photos in Supabase Storage.
-The accountant's gallery was reorganized into All / Pending / Flagged / Matched tabs.
+**State:** Roadmap steps 1 (migrations), 2 (photo storage) and 5 (automated tests) are done. Steps
+3 and 4 were deliberately skipped for now and are still open. Production runs on real Postgres and
+stores bill photos in Supabase Storage. The backend has a 54-test pytest suite (`backend/tests/`).
 
-**Waiting on the user:** checking the live site after adding the `S3_*` env vars on Render: upload
-a bill and confirm it appears in Supabase → Storage → `siteverify-bills`.
+**Waiting on the user:** feedback on step 5 (the test suite). Also still to check: the live site
+after adding the `S3_*` env vars on Render. Upload a bill and confirm it appears in Supabase →
+Storage → `siteverify-bills`.
 
-**Next step:** roadmap step 3 (secrets management), which is mostly already in place, so a short
-review. Then step 4 (auth hardening). Before either, deal with the security item at the top of the
+**Next step:** step 6 (CI/CD: GitHub Actions runs this test suite on every push), which builds
+directly on step 5. Steps 3 and 4 are still open, and so is the security item at the top of the
 list below.
 
 ### Open items (most urgent first)
@@ -52,10 +53,10 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 |---|------|--------|
 | 1 | Database: real migrations (Flask-Migrate/Alembic), Postgres in production | ✅ Done 2026-10-02 |
 | 2 | File storage: bill photos in S3-compatible object storage (Supabase) | ✅ Done 2026-10-02 |
-| 3 | Secrets management review | ⏭ Next |
-| 4 | Auth hardening: rate-limit login, short-lived tokens + refresh, lock down CORS | Not started |
-| 5 | Automated tests (pytest) | Not started |
-| 6 | CI/CD: GitHub Actions runs tests before deploy | Not started |
+| 3 | Secrets management review | Skipped for now |
+| 4 | Auth hardening: rate-limit login, short-lived tokens + refresh, lock down CORS | Skipped for now |
+| 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
+| 6 | CI/CD: GitHub Actions runs tests before deploy | ⏭ Next |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Not started |
 | 8 | OCR on bill photos | Not started (provider undecided) |
 | 9 | Scaling | Not started |
@@ -65,6 +66,34 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-03 — Roadmap step 5: automated tests
+
+- Added a pytest suite in `backend/tests/` (54 tests, ~40 s):
+  - `test_auth.py`: login, wrong/unknown credentials (same error either way), token checks,
+    forgot-password not revealing which numbers have accounts.
+  - `test_permissions.py`: every admin route returns 401 to anonymous users and 403 to supervisors
+    and accountants.
+  - `test_deliveries.py`: upload → login-protected photo access → flag → match, bills persist, the
+    per-project and office counts, the supervisor's today view, Save to Drive with no account, and
+    a regression test for the IST timestamp bug.
+  - `test_admin.py`: create user (who can then log in), duplicate/invalid input, the full
+    password-reset flow, creating a project.
+  - `test_migrations.py`: fails if `models.py` changes without a migration. Verified by adding a
+    column temporarily and watching it fail.
+- `create_app()` now takes an optional `test_config`, so tests use a temporary SQLite database and
+  upload folder with the S3 and Google settings blanked; they never touch real storage. The schema
+  is built through the real migrations.
+- New `backend/requirements-dev.txt` (pytest) and `backend/pytest.ini`. Removed a deprecated call
+  from `backend/migrations/env.py`.
+- **Supervisor project screen** now has three tabs: Waiting to send (the offline queue) · Sent today
+  · All bills. Previously it showed only today's bills, so older ones disappeared from the
+  supervisor's view. Each card shows the date, quantity, PO number and status, plus the office's
+  note when a bill is flagged. The bill card body is now shared with the accountant gallery
+  (`frontend/src/components/BillSummary.tsx`). A test now covers the supervisor's "all my bills" query
+  (55 tests).
+- Note: the local app and the live site have separate databases. A bill added on one doesn't show
+  on the other.
 
 ### 2026-10-03 — Two-machine workflow docs
 

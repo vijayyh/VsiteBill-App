@@ -132,6 +132,20 @@ The backend does **not** auto-reload. Restart it after changing Python code.
 
 ---
 
+## Running the tests
+
+Install the test tools once (from `backend/`), then run the suite:
+
+```bash
+.venv/Scripts/python -m pip install -r requirements-dev.txt     # macOS/Linux: .venv/bin/python …
+.venv/Scripts/python -m pytest
+```
+
+Each test runs against its own temporary database and upload folder, so it never touches your
+local data, the Supabase bucket or Google Drive. The suite covers login and tokens, role
+permissions on every admin route, the bill flow (upload → photo access → flag → match → counts),
+admin user/password/project management, and a check that the migrations match `models.py`.
+
 ## Changing the database schema
 
 1. Edit the models in `backend/siteverify/models.py`.

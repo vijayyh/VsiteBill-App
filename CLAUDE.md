@@ -40,6 +40,14 @@ between them — this file and `docs/PROGRESS.md` are the shared memory. Treat t
   shown as the author on GitHub. Only commit/push when the user asks (or at session end, per above).
 - Wording in the UI says **"bill"** (not delivery/challan) for the thing a supervisor uploads.
 
+## Tests
+
+Backend tests live in `backend/tests/` (pytest). Run `.venv/Scripts/python -m pytest` from
+`backend/` after any backend change and before committing; add a test for each new endpoint or
+bug fix. Tests build their own temporary database via the migrations, through
+`create_app(test_config)` in `conftest.py`, and blank the S3/Google settings, so they never touch
+real storage.
+
 ## Gotchas that have bitten before
 
 - **Backend auto-reload is off** (`use_reloader=False` in `backend/app.py`, because Werkzeug left

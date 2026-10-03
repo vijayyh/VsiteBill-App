@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
-import { IconCloud } from '../../components/icons'
+import { BillSummary } from '../../components/BillSummary'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { useApiGet } from '../../lib/api'
-import { formatDateTime, formatQty } from '../../lib/format'
 import { STATUS_META } from '../../lib/status'
 import type { Delivery, DeliveryStatus, Project } from '../../lib/types'
 
@@ -28,9 +27,6 @@ function BillCard({
   projectId: string
   onViewPhoto: (src: string) => void
 }) {
-  const mismatch =
-    delivery.ordered != null && delivery.delivered != null && delivery.ordered !== delivery.delivered
-
   return (
     <div className="flex gap-3 bg-surface border border-border rounded-card p-3 shadow-[0_1px_2px_rgba(20,24,26,0.04)]">
       <button
@@ -43,49 +39,18 @@ function BillCard({
       </button>
 
       <Link to={`/accountant/projects/${projectId}/review/${delivery.id}`} className="flex-grow min-w-0 block">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-[14px] font-bold truncate">{delivery.vendor || 'Vendor not entered'}</div>
-            <div className="text-[12px] text-ink-muted truncate mt-px">
-              {delivery.item || 'No item description'}
-            </div>
-          </div>
-          <StatusBadge status={delivery.status} />
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 mt-2.5">
-          <div>
-            <div className="text-[10px] font-semibold text-ink-faint uppercase tracking-wide">Delivered</div>
-            <div className={`text-[13px] font-bold ${mismatch ? 'text-warning-text' : ''}`}>
-              {formatQty(delivery.delivered)}
-            </div>
-          </div>
-          <div>
-            <div className="text-[10px] font-semibold text-ink-faint uppercase tracking-wide">Ordered</div>
-            <div className="text-[13px] font-bold">{formatQty(delivery.ordered)}</div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold text-ink-faint uppercase tracking-wide">PO no.</div>
-            <div className="text-[13px] font-bold truncate">{delivery.poNumber || '—'}</div>
-          </div>
-        </div>
-
-        {delivery.note && (
-          <div className="text-[11.5px] text-ink-muted italic mt-2 line-clamp-2">“{delivery.note}”</div>
-        )}
-
-        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-border text-[11px] text-ink-faint">
-          <span className="truncate">
-            {delivery.uploadedBy ? `${delivery.uploadedBy} · ` : ''}
-            {formatDateTime(delivery.uploadedAt)}
-          </span>
-          {delivery.driveFileId && (
-            <span className="flex items-center gap-1 font-semibold text-success-text flex-shrink-0">
-              <IconCloud size={12} stroke="var(--color-success-text)" />
-              In Drive
-            </span>
-          )}
-        </div>
+        <BillSummary
+          vendor={delivery.vendor}
+          item={delivery.item}
+          badge={<StatusBadge status={delivery.status} />}
+          delivered={delivery.delivered}
+          ordered={delivery.ordered}
+          poNumber={delivery.poNumber}
+          note={delivery.note}
+          byline={delivery.uploadedBy}
+          timestamp={delivery.uploadedAt}
+          inDrive={!!delivery.driveFileId}
+        />
       </Link>
     </div>
   )

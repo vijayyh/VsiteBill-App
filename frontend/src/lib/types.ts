@@ -78,6 +78,15 @@ export interface DriveStatus {
   } | null
 }
 
+/** GET /api/office/drive — read-only Drive links for accountants and admins. */
+export interface OfficeDrive {
+  connected: boolean
+  email?: string
+  sharedDriveName?: string | null
+  rootFolderUrl?: string | null
+  projectFolderUrls?: Record<string, string>
+}
+
 export interface SharedDrive {
   id: string
   name: string

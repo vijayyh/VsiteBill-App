@@ -1,10 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { IconChevronRight, IconTruck } from '../../components/icons'
+import { IconChevronRight, IconCloud, IconTruck } from '../../components/icons'
 import { useSession } from '../../lib/session'
 import { useApiGet } from '../../lib/api'
 import { greeting } from '../../lib/format'
 import { STATUS_META } from '../../lib/status'
-import type { ProjectAccent, ProjectSummary } from '../../lib/types'
+import type { OfficeDrive, ProjectAccent, ProjectSummary } from '../../lib/types'
 
 const accentBg: Record<ProjectAccent, string> = {
   accent: 'bg-accent',
@@ -16,6 +16,52 @@ interface OfficeStats {
   pending: number
   flagged: number
   matchedThisMonth: number
+}
+
+function DriveArchiveCard({ drive }: { drive: OfficeDrive | null }) {
+  if (!drive) return null
+
+  if (!drive.connected) {
+    return (
+      <div className="bg-surface border border-border rounded-card p-3.5 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-surface-alt flex items-center justify-center flex-shrink-0">
+          <IconCloud size={17} stroke="var(--color-ink-faint)" />
+        </div>
+        <div className="text-[12.5px] text-ink-muted leading-snug">
+          Google Drive isn’t connected yet. An admin can connect it from the admin panel.
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-surface border border-border rounded-card p-3.5">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-success-bg flex items-center justify-center flex-shrink-0">
+          <IconCloud size={17} stroke="var(--color-success-text)" />
+        </div>
+        <div className="flex-grow min-w-0">
+          <div className="text-[13.5px] font-bold">Bills archive in Google Drive</div>
+          <div className="text-[11.5px] text-ink-muted truncate">
+            {drive.sharedDriveName ? `Shared Drive: ${drive.sharedDriveName}` : `My Drive of ${drive.email}`}
+          </div>
+        </div>
+        {drive.rootFolderUrl && (
+          <a
+            href={drive.rootFolderUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-shrink-0 text-[12px] font-bold text-white bg-accent rounded-btn px-3 py-2"
+          >
+            Open ↗
+          </a>
+        )}
+      </div>
+      <div className="text-[11px] text-ink-faint mt-2.5 leading-snug">
+        View-only. If Google asks for access, ask an admin to add your Google account as a Viewer.
+      </div>
+    </div>
+  )
 }
 
 function CountChip({ label, className }: { label: string; className: string }) {
@@ -48,6 +94,7 @@ export function AccountantDashboard() {
   const navigate = useNavigate()
   const { data: projectsData, loading, error } = useApiGet<{ projects: ProjectSummary[] }>('/api/projects')
   const { data: stats } = useApiGet<OfficeStats>('/api/office/stats')
+  const { data: drive } = useApiGet<OfficeDrive>('/api/office/drive')
 
   const tiles = [
     { label: 'Pending', value: stats?.pending, meta: STATUS_META.PENDING },
@@ -91,6 +138,10 @@ export function AccountantDashboard() {
       </div>
 
       <div className="flex-grow overflow-y-auto px-4 py-[18px]">
+        <div className="mb-[18px]">
+          <DriveArchiveCard drive={drive} />
+        </div>
+
         <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Projects</div>
 
         {loading && <div className="text-sm text-ink-muted">Loading projects…</div>}

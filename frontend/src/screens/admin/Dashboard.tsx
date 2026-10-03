@@ -118,14 +118,20 @@ export function AdminDashboard() {
               </select>
 
               {driveStatus.account.rootFolderUrl ? (
-                <a
-                  href={driveStatus.account.rootFolderUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2.5 inline-block text-[12.5px] font-semibold text-accent"
-                >
-                  Open Drive folder ↗
-                </a>
+                <>
+                  <a
+                    href={driveStatus.account.rootFolderUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2.5 inline-block text-[12.5px] font-semibold text-accent"
+                  >
+                    Open Drive folder ↗
+                  </a>
+                  <div className="text-[11px] text-ink-faint mt-1.5 leading-snug">
+                    Accountants see this archive view-only in their app. To let them open it, add their
+                    Google accounts as <b>Viewer</b> in Google Drive.
+                  </div>
+                </>
               ) : (
                 <div className="mt-2.5 text-xs text-ink-muted">
                   The Drive folder will appear here once it's created.

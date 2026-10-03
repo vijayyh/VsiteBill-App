@@ -30,7 +30,7 @@ SiteVerify replaces the paper chase:
 | Role | Can do |
 |---|---|
 | Site supervisor | Pick a project → take/choose a photo → enter bill details → send (offline-capable). Sees their own bills from today. |
-| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive. |
+| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive. Open the Drive archive and each project's folder, view-only. |
 | Admin | Overview stats, create users and reset passwords, create/edit projects, connect Google Drive (and pick a Shared Drive), view all bills. |
 
 Login is by phone number + password. There's no SMS or email: "Forgot password" files a request
@@ -98,7 +98,7 @@ Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
 | `/api/auth` | `POST /login`, `GET /me`, `POST /forgot-password` |
 | `/api/projects` | list (with pending/flagged/matched counts), get one, list a project's bills |
 | `/api` | `POST /projects/<id>/deliveries` (upload), `GET`/`PATCH /deliveries/<id>`, `POST /deliveries/<id>/save-to-drive` |
-| `/api/office` | `GET /stats` (pending, flagged, matched this month) |
+| `/api/office` | `GET /stats` (pending, flagged, matched this month), `GET /drive` (read-only Drive links; accountant + admin) |
 | `/api/admin` | overview, all bills, users (create, reset password), password-reset requests, projects (create, edit), Drive (status, connect, callback, disconnect, shared drives) |
 | `/uploads/<file>` | login-protected photo access (redirects to a signed storage URL) |
 | `/api/health` | uptime check used by Render |

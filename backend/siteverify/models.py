@@ -9,6 +9,10 @@ def utcnow():
     return datetime.now(timezone.utc)
 
 
+def drive_folder_url(folder_id):
+    return f"https://drive.google.com/drive/folders/{folder_id}" if folder_id else None
+
+
 def iso_utc(dt):
     # Timestamps are written in UTC but the DateTime columns are timezone-naive,
     # so they read back without an offset — and a browser parses an offset-less
@@ -184,11 +188,7 @@ class GoogleDriveAccount(db.Model):
             "connectedAt": iso_utc(self.connected_at),
             "sharedDriveId": self.shared_drive_id,
             "sharedDriveName": self.shared_drive_name,
-            "rootFolderUrl": (
-                f"https://drive.google.com/drive/folders/{self.root_folder_id}"
-                if self.root_folder_id
-                else None
-            ),
+            "rootFolderUrl": drive_folder_url(self.root_folder_id),
         }
 
 

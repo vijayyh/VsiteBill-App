@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
+import { IconCloud } from '../../components/icons'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { useApiGet } from '../../lib/api'
 import { STATUS_META } from '../../lib/status'
-import type { Delivery, DeliveryStatus, Project } from '../../lib/types'
+import type { Delivery, DeliveryStatus, OfficeDrive, Project } from '../../lib/types'
 
 type Filter = 'ALL' | DeliveryStatus
 
@@ -64,12 +65,14 @@ export function ProjectGallery() {
   const { data: deliveriesData, loading } = useApiGet<{ deliveries: Delivery[] }>(
     `/api/projects/${projectId}/deliveries`,
   )
+  const { data: drive } = useApiGet<OfficeDrive>('/api/office/drive')
   const [filter, setFilter] = useState<Filter>('ALL')
   const [viewerSrc, setViewerSrc] = useState<string | null>(null)
 
   if (projectError) return <Navigate to="/accountant" replace />
   const project = projectData?.project
   const deliveries = deliveriesData?.deliveries ?? []
+  const projectFolderUrl = drive?.projectFolderUrls?.[projectId]
 
   const countOf = (status: DeliveryStatus) => deliveries.filter((d) => d.status === status).length
   const visible = filter === 'ALL' ? deliveries : deliveries.filter((d) => d.status === filter)
@@ -90,7 +93,25 @@ export function ProjectGallery() {
 
   return (
     <div className="flex flex-col flex-grow min-h-0 text-ink">
-      <ScreenHeader backTo="/accountant" title={project?.code ?? ''} subtitle={project?.name} />
+      <ScreenHeader
+        backTo="/accountant"
+        title={project?.code ?? ''}
+        subtitle={project?.name}
+        action={
+          projectFolderUrl && (
+            <a
+              href={projectFolderUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Open this project's folder in Google Drive (view-only)"
+              className="flex items-center gap-1 text-[12px] font-bold text-accent bg-info-bg rounded-full px-3 py-1.5"
+            >
+              <IconCloud size={13} stroke="var(--color-accent)" />
+              Drive ↗
+            </a>
+          )
+        }
+      />
 
       <div className="flex-shrink-0 flex gap-2 px-4 pt-3.5 pb-2 overflow-x-auto [scrollbar-width:none]">
         {tabs.map((tab) => (

@@ -55,12 +55,12 @@ def login_required(fn):
     return wrapper
 
 
-def require_role(role: str):
+def require_role(*roles: str):
     def decorator(fn):
         @wraps(fn)
         @login_required
         def wrapper(*args, **kwargs):
-            if g.current_user.role != role:
+            if g.current_user.role not in roles:
                 return jsonify({"error": "Forbidden for this role"}), 403
             return fn(*args, **kwargs)
 

@@ -71,6 +71,21 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
 
+### 2026-10-03 — Accountants get view-only Google Drive access
+
+- New `GET /api/office/drive` (accountant + admin only) returns whether Drive is connected, the
+  account / Shared Drive name, and the root and per-project folder links. The refresh token is
+  never included. Connect, disconnect and Shared-Drive switching stay admin-only.
+  `require_role()` now accepts several roles.
+- Accountant dashboard: a "Bills archive in Google Drive" card with an **Open ↗** link, or a
+  "not connected yet" note. Each project gallery header has a **Drive ↗** link to that project's
+  folder. Admin's Drive card reminds them to give accountants Viewer access.
+- Opening the links also needs **Google-side permission**: the accountant's Google account must be
+  a **Viewer** on the folder (My Drive: share the "SiteVerify Bills" folder; Shared Drive: add them
+  as a member with the Viewer role). Viewers can look but can't delete or edit.
+- 9 new tests (66 total): role access, not-connected state, links returned, no secrets leaked,
+  accountants still blocked from connect/disconnect/switch.
+
 ### 2026-10-03 — Roadmap step 9: scaling
 
 Measured on the live site first, then fixed what the numbers showed:

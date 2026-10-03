@@ -17,7 +17,27 @@ real uploads). Supervisors now see all their bills, not just today's.
 
 Step 9 (scaling) is also done; steps 7 and 8 were skipped for now.
 
-**Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
+**IN PROGRESS: UI redesign, on branch `ui-redesign` (not merged, not live).** This is the
+glass-style rebuild based on the user's Dribbble reference.
+- Decisions: keep navy, colour project cards (no photos), in-app alerts with an unread badge, a
+  welcome screen, and "Classic frosted glass".
+- Done:
+  - Glass theme (`index.css`: `glass`, `glass-strong`, colour-patch `bg-page`) and the shared
+    pieces in `components/ui.tsx`.
+  - `BottomNav` (role tabs with a raised centre button), `AppHeader`/`BellButton`, `ProjectCard`,
+    `BillRow`, `ProjectCounts`.
+  - Welcome, Login, supervisor Home / My bills / Add bill, shared Alerts and Profile (change
+    password, sign out), accountant Home / Projects / Review queue, and admin moved into the bottom
+    bar via `AdminShell`.
+  - Backend: notifications (`notify.py`, `/api/notifications`, migration `d0dc350e48df`),
+    `/api/auth/change-password`, `GET /api/deliveries` (cross-project; supervisors see only their
+    own), and phone on `/api/auth/me`. 74 backend tests pass; the frontend type-checks.
+- **Still to restyle** (they work, but look old): supervisor Project, UploadOptions,
+  DeliveryDetails, UploadSuccess; accountant ProjectGallery (planned: colour hero header like the
+  design's detail page) and ReviewDelivery; ForgotPassword. Then check every screen in the
+  preview, run lint and build, merge to `main`, and check the live site.
+
+**Next step after that:** the user decides how to handle the free-plan sleep (open item 5). Still open:
 roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
 
 ### Open items (most urgent first)

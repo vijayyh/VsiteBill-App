@@ -163,6 +163,33 @@ class PasswordResetRequest(db.Model):
         }
 
 
+class Notification(db.Model):
+    """An in-app alert for one user (shown on the Alerts tab, counted on the bell)."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (db.Index("ix_notifications_user_created_at", "user_id", "created_at"),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    kind = db.Column(db.String(30), nullable=False)  # bill_new | bill_flagged | bill_matched | password_reset
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.String(300), nullable=True)
+    link = db.Column(db.String(200), nullable=True)  # an in-app path to open when tapped
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    read_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "title": self.title,
+            "body": self.body,
+            "link": self.link,
+            "createdAt": iso_utc(self.created_at),
+            "read": self.read_at is not None,
+        }
+
+
 class GoogleDriveAccount(db.Model):
     """Single-row table: the one Google account the admin has connected for Drive
     sync. Every accountant's "Save to Drive" writes through this same account —

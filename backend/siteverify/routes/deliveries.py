@@ -1,9 +1,10 @@
 import uuid
 
 from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 
-from .. import drive, storage
+from .. import drive, notify, storage
 from ..auth import login_required
 from ..extensions import db
 from ..models import Delivery, Project
@@ -11,6 +12,27 @@ from ..models import Delivery, Project
 bp = Blueprint("deliveries", __name__, url_prefix="/api")
 
 ALLOWED_STATUSES = {"PENDING", "REVIEW", "MATCHED"}
+
+
+@bp.get("/deliveries")
+@login_required
+def list_deliveries_across_projects():
+    """Bills across every project, newest first, each with its project's code/name.
+    Supervisors only ever see their own; ?mine=1 narrows anyone else to theirs."""
+    user = g.current_user
+    query = Delivery.query.options(joinedload(Delivery.project))
+    if user.role == "supervisor" or request.args.get("mine") == "1":
+        query = query.filter(Delivery.uploaded_by_id == user.id)
+    status_param = request.args.get("status")
+    if status_param:
+        query = query.filter(Delivery.status.in_(status_param.split(",")))
+
+    result = []
+    for d in query.order_by(Delivery.uploaded_at.desc()).all():
+        data = d.to_dict()
+        data["project"] = {"code": d.project.code, "name": d.project.name, "accent": d.project.accent}
+        result.append(data)
+    return jsonify({"deliveries": result})
 
 
 @bp.post("/projects/<project_id>/deliveries")
@@ -47,6 +69,8 @@ def create_delivery(project_id):
         photo_filename=filename,
     )
     db.session.add(delivery)
+    db.session.flush()  # assigns delivery.id for the notification link
+    notify.bill_uploaded(delivery)
     db.session.commit()
 
     return jsonify({"delivery": delivery.to_dict()}), 201
@@ -69,6 +93,7 @@ def update_delivery(delivery_id):
         return jsonify({"error": "Delivery not found"}), 404
 
     data = request.get_json(silent=True) or {}
+    previous_status = delivery.status
 
     if "vendor" in data:
         delivery.vendor = data["vendor"]
@@ -87,6 +112,8 @@ def update_delivery(delivery_id):
             return jsonify({"error": "Invalid status"}), 400
         delivery.status = data["status"]
 
+    if delivery.status != previous_status:
+        notify.bill_status_changed(delivery, g.current_user)
     db.session.commit()
     return jsonify({"delivery": delivery.to_dict()})
 

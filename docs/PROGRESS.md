@@ -90,8 +90,9 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   - Built a "version B" while the page stayed open: the foreground check showed the banner, with
     the page still on version A.
   - Tapping Update loaded version B and the banner went away. The test change was reverted.
-- Transition note: people currently on the old version get this code on their next reload; the
-  banner works from the deploy after that.
+- Live (`e1588cb`): CI passed and the live bundle contains the banner. A browser tab already open
+  on the previous version needed two reloads to pick it up: the first lets the browser find the new
+  version, the second runs it. From now on, every deploy shows the banner instead.
 
 ### 2026-10-03 — Accountants get view-only Google Drive access
 

@@ -32,9 +32,13 @@ roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
 3. **Rotate the Supabase S3 access key.** It was pasted into a chat. Create a new key in Supabase
    (Project Settings → Storage → S3 access keys), update it on Render and in `backend/.env`, then
    delete the old one.
-4. **Reconnect Google Drive on production.** The old Drive connection lived in the throwaway SQLite
-   database (see 2026-10-02) and is gone. The admin needs to click "Connect Google Drive" again on
-   the live site.
+4. ~~Reconnect Google Drive on production~~: done. It's connected to `vijay@sustaniq.in` (My
+   Drive), with folders for all 3 projects (checked 2026-10-03).
+4b. **After a deploy, people who've opened the app before keep seeing the old version until they
+   reload once more.** The offline cache (service worker, `registerType: 'autoUpdate'`) installs the
+   new version in the background but doesn't refresh the open page. Seen on the live site:
+   2026-10-03. Possible fix: show a small "New version available — tap to update" banner (safer than
+   an automatic reload, which could wipe a bill a supervisor is halfway through filling in).
 5. The `vsitebill-api` web service is on Render's **free plan**: it sleeps after 15 min idle, so the
    first login/send/match after a quiet spell is slow. Undecided options: (a) a paid instance,
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
@@ -85,6 +89,10 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   as a member with the Viewer role). Viewers can look but can't delete or edit.
 - 9 new tests (66 total): role access, not-connected state, links returned, no secrets leaked,
   accountants still blocked from connect/disconnect/switch.
+- Verified live (`0fb9ebb`): CI passed. On the live API, the supervisor gets 403 and the accountant
+  gets the links but 403 on the admin connect route. The live accountant dashboard shows the Drive
+  card, and the KH-PRJ-014 gallery's Drive link opens that project's folder. It took one extra
+  reload to appear (see open item 4b).
 
 ### 2026-10-03 — Roadmap step 9: scaling
 

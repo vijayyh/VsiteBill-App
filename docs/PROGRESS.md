@@ -100,6 +100,17 @@ Measured on the live site first, then fixed what the numbers showed:
   already loaded, so the cost grows with the number of people, not bills.
 - Not done yet: pagination of very long bill lists, and small thumbnail files. Worth doing once a
   project has thousands of bills.
+- **Verified live (commit `9a96b4e`):**
+  - CI passed, including the new gunicorn smoke test.
+  - The Render log shows `Using worker: gthread` (earlier deploys said `sync`) and the index
+    migration running on production Postgres.
+  - The live frontend bundle contains the photo-shrinking and lazy-thumbnail code.
+- **Trade-off measured on live:** with logins and gallery loads mixed, galleries now return in
+  0.7–1.9 s while logins run, instead of queuing behind them. But **6 logins in the same second**
+  now all finish around 5 s, where before they were served one after another (0.9 → 4.1 s, average
+  ~2.5 s). Logins are pure CPU work, and the free plan's CPU slice is the ceiling; threads share it
+  evenly. Kept, because real traffic is mostly galleries and uploads, and a login lasts 7 days. A
+  paid instance with more CPU fixes both cases.
 
 ### 2026-10-03 — Roadmap step 6: CI/CD
 

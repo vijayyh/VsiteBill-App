@@ -9,17 +9,14 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-03 (office machine)_
 
-**State:** Roadmap steps 1 (migrations), 2 (photo storage) and 5 (automated tests) are done. Steps
-3 and 4 were deliberately skipped for now and are still open. Production runs on real Postgres and
-stores bill photos in Supabase Storage. The backend has a 54-test pytest suite (`backend/tests/`).
+**State:** Roadmap steps 1 (migrations), 2 (photo storage), 5 (automated tests) and 6 (CI/CD)
+are done and verified on the live site. Steps 3 and 4 were deliberately skipped for now and are
+still open. Every push runs 55 backend tests plus a frontend lint and build on GitHub, and Render
+deploys only after they pass. Production runs on Postgres with photos in Supabase (confirmed with
+real uploads). Supervisors now see all their bills, not just today's.
 
-**Waiting on the user:** feedback on step 5 (the test suite). Also still to check: the live site
-after adding the `S3_*` env vars on Render. Upload a bill and confirm it appears in Supabase →
-Storage → `siteverify-bills`.
-
-**Next step:** step 6 (CI/CD: GitHub Actions runs this test suite on every push), which builds
-directly on step 5. Steps 3 and 4 are still open, and so is the security item at the top of the
-list below.
+**Next step:** step 7 (monitoring: error alerts with Sentry, uptime checks). Still open: steps 3
+and 4, the security item at the top of the list below, and shrinking photos before upload (item 7).
 
 ### Open items (most urgent first)
 
@@ -39,7 +36,10 @@ list below.
 5. The `vsitebill-api` web service is on Render's **free plan**: it sleeps when idle, and the first
    request then takes ~50 seconds. Upgrade before real site use.
 6. Open question from the technical guide: **OCR provider**, Google Cloud Vision vs AWS Textract.
-7. Tidy-up once Supabase storage is confirmed on production: `render.yaml` still declares the old
+7. **Bill photos are 5–7 MB each**, uploaded straight from the phone camera. That's slow on site
+   mobile data and fills Supabase's 1 GB free tier after ~150–200 bills. Worth shrinking photos in
+   the browser before upload (e.g. ~1600px, JPEG ~80%, about 300–500 KB, still readable).
+8. Tidy-up (Supabase storage is now confirmed working on production): `render.yaml` still declares the old
    `delivery-uploads` disk, which is no longer needed.
 
 ---
@@ -77,6 +77,15 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
 - Replaced the deprecated `Model.query.get()` with `db.session.get()` across the backend. This
   removed the warnings the tests had been silencing, and was the first change sent through the full
   CI-then-deploy chain.
+- **Verified the gate end to end:** after the push, the live API stayed on the old commit while CI
+  ran. CI passed and Render then auto-deployed `e2ef4f2`.
+- **Fixed a live-site bug found while checking:** opening or refreshing any page other than `/`
+  (e.g. `/login`, `/supervisor`, or the `/admin?drive=…` page the Google Drive connect flow returns
+  to) gave Render's "Not Found". The rewrite rule in `render.yaml` had never been applied (same cause
+  as the missing `DATABASE_URL`). Added it in the dashboard (vsitebill-app → Redirects/Rewrites:
+  `/*` → `/index.html`, Rewrite). All routes now return 200.
+- Checked on the live site: the supervisor's All bills tab shows the user's real bills from today
+  and yesterday, with photos served from Supabase.
 
 ### 2026-10-03 — Roadmap step 5: automated tests
 

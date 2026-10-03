@@ -1,4 +1,50 @@
+import io
+
+from sqlalchemy import event
+
 from conftest import PHONES
+from siteverify.extensions import db
+
+
+def count_queries(app, fn):
+    with app.app_context():
+        engine = db.engine
+    statements = []
+    listener = lambda *args: statements.append(args[2])  # noqa: E731
+    event.listen(engine, "before_cursor_execute", listener)
+    try:
+        fn()
+    finally:
+        event.remove(engine, "before_cursor_execute", listener)
+    return len(statements)
+
+
+def test_user_list_counts_bills_and_projects_per_user(client, login):
+    supervisor, admin = login("supervisor"), login("admin")
+    for project_id in ["kh-014", "kh-014", "kh-021"]:
+        client.post(
+            f"/api/projects/{project_id}/deliveries",
+            data={"photo": (io.BytesIO(b"x"), "b.jpg"), "vendor": "V"},
+            headers=supervisor,
+            content_type="multipart/form-data",
+        )
+
+    users = {u["phone"]: u for u in client.get("/api/admin/users", headers=admin).get_json()["users"]}
+    assert (users[PHONES["supervisor"]]["deliveryCount"], users[PHONES["supervisor"]]["projectsUploadedTo"]) == (3, 2)
+    assert (users[PHONES["accountant"]]["deliveryCount"], users[PHONES["accountant"]]["projectsUploadedTo"]) == (0, 0)
+
+
+def test_user_list_query_count_does_not_grow_with_users(app, client, login):
+    admin = login("admin")
+    before = count_queries(app, lambda: client.get("/api/admin/users", headers=admin))
+    for i in range(10):
+        client.post(
+            "/api/admin/users",
+            json={"name": f"User {i}", "phone": f"+91 70000 000{i:02d}", "role": "supervisor"},
+            headers=admin,
+        )
+    after = count_queries(app, lambda: client.get("/api/admin/users", headers=admin))
+    assert after == before
 
 
 def test_admin_creates_a_user_who_can_then_log_in(client, login):

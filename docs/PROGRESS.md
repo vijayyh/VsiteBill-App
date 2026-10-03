@@ -15,8 +15,10 @@ still open. Every push runs 55 backend tests plus a frontend lint and build on G
 deploys only after they pass. Production runs on Postgres with photos in Supabase (confirmed with
 real uploads). Supervisors now see all their bills, not just today's.
 
-**Next step:** step 7 (monitoring: error alerts with Sentry, uptime checks). Still open: steps 3
-and 4, the security item at the top of the list below, and shrinking photos before upload (item 7).
+Step 9 (scaling) is also done; steps 7 and 8 were skipped for now.
+
+**Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
+roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
 
 ### Open items (most urgent first)
 
@@ -33,12 +35,14 @@ and 4, the security item at the top of the list below, and shrinking photos befo
 4. **Reconnect Google Drive on production.** The old Drive connection lived in the throwaway SQLite
    database (see 2026-10-02) and is gone. The admin needs to click "Connect Google Drive" again on
    the live site.
-5. The `vsitebill-api` web service is on Render's **free plan**: it sleeps when idle, and the first
-   request then takes ~50 seconds. Upgrade before real site use.
+5. The `vsitebill-api` web service is on Render's **free plan**: it sleeps after 15 min idle, so the
+   first login/send/match after a quiet spell is slow. Undecided options: (a) a paid instance,
+   which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
+   `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
+   pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
 6. Open question from the technical guide: **OCR provider**, Google Cloud Vision vs AWS Textract.
-7. **Bill photos are 5–7 MB each**, uploaded straight from the phone camera. That's slow on site
-   mobile data and fills Supabase's 1 GB free tier after ~150–200 bills. Worth shrinking photos in
-   the browser before upload (e.g. ~1600px, JPEG ~80%, about 300–500 KB, still readable).
+7. ~~Bill photos are 5–7 MB each~~: fixed in step 9 (photos are now shrunk on the phone before
+   upload). The 3 bills uploaded before that are still full size.
 8. Tidy-up (Supabase storage is now confirmed working on production): `render.yaml` still declares the old
    `delivery-uploads` disk, which is no longer needed.
 
@@ -57,15 +61,45 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 4 | Auth hardening: rate-limit login, short-lived tokens + refresh, lock down CORS | Skipped for now |
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
-| 7 | Monitoring: Sentry, structured logs, uptime checks | Not started |
-| 8 | OCR on bill photos | Not started (provider undecided) |
-| 9 | Scaling | Not started |
+| 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
+| 8 | OCR on bill photos | Skipped for now (provider undecided) |
+| 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
 
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-03 — Roadmap step 9: scaling
+
+Measured on the live site first, then fixed what the numbers showed:
+
+- **Slow first action (login / send / match):** Render's free plan puts the backend to sleep after
+  15 minutes with no requests, and the next request waits for it to start back up. That's not a
+  code bug. When awake: gallery 0.24 s, health 0.35 s, login about 1 s (password hashing on the free
+  plan's small CPU share). Options are in open item 5.
+- **A slow phone upload does *not* block other users.** A request trickled in at 10 KB/s didn't
+  delay a parallel request: Render's proxy buffers uploads before they reach the app.
+- **Requests were processed one at a time:** 6 simultaneous logins finished 0.65 s apart (the
+  sixth waited 4.1 s). New `backend/gunicorn.conf.py`: gthread worker with 8 threads, so work that
+  waits on Postgres, Supabase or Drive overlaps; 120 s timeout. CPU-bound work like password
+  checks still needs a bigger instance to run in parallel. CI now boots gunicorn with this config
+  and fires 10 concurrent requests. `gunicorn==26.2.0` is now pinned in `requirements.txt`.
+- **Photos shrunk on the phone before upload/queue** (`frontend/src/lib/compressImage.ts`):
+  longest side 2000 px, JPEG 80%. A 6.8 MB test image became 705 KB in 0.3 s with small printed
+  figures still clearly readable. If the browser can't decode a photo, the original is sent.
+- **Gallery thumbnails load only when scrolled near** (`AuthImage`). Before, opening a gallery
+  downloaded every bill's full photo (3 live bills = 18.7 MB). With 12 test bills, 6 loaded on open
+  and the rest on scroll.
+- **Database:** migration `d5267578692f` adds indexes on deliveries (project+upload time, uploader,
+  status). `pool_pre_ping` stops stale connections failing the first request after the server
+  wakes. The admin user list no longer runs 2 queries per user; a test pins this (it was 8 → 28
+  queries after adding 10 users, and is now constant). 57 tests in total.
+- Checked and *not* an issue: lazy-loading each bill's uploader. SQLAlchemy reuses users it has
+  already loaded, so the cost grows with the number of people, not bills.
+- Not done yet: pagination of very long bill lists, and small thumbnail files. Worth doing once a
+  project has thousands of bills.
 
 ### 2026-10-03 — Roadmap step 6: CI/CD
 

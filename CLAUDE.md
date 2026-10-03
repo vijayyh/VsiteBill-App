@@ -68,6 +68,12 @@ locally before pushing. A red CI run means the live site did **not** update.
   The live values are in the Render dashboard (vsitebill-api → Environment).
 - **Photo storage:** `backend/siteverify/storage.py` uses the S3-compatible bucket when the `S3_*`
   env vars are set, and falls back to local disk (`backend/uploads/`) when they aren't.
+- **Production server settings** live in `backend/gunicorn.conf.py` (gthread, 8 threads, 120 s
+  timeout), which gunicorn loads automatically. Gunicorn doesn't run on Windows; CI smoke-tests it.
+- **Photos are shrunk in the browser before upload** (`frontend/src/lib/compressImage.ts`), and
+  gallery thumbnails lazy-load (`AuthImage`). Keep both when touching the upload or gallery code.
+- **Render free plan sleeps after 15 min idle.** A slow first request after a quiet spell is that,
+  not a bug. Measure before assuming otherwise.
 - **Timestamps** are stored as naive UTC; always serialize with `iso_utc()` from `models.py` or
   the browser shows them 5h30m off.
 - The `.claude/launch.json` backend path is the Windows venv (`backend/.venv/Scripts/python.exe`).

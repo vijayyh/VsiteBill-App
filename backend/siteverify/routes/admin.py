@@ -1,4 +1,5 @@
 from flask import Blueprint, current_app, g, jsonify, redirect, request
+from sqlalchemy import func
 
 from .. import drive
 from ..auth import generate_password, require_role
@@ -43,14 +44,20 @@ def list_all_deliveries():
 @bp.get("/users")
 @require_role("admin")
 def list_users():
-    users = User.query.order_by(User.role, User.name).all()
-    result = []
-    for user in users:
-        data = user.to_admin_dict()
-        data["projectsUploadedTo"] = (
-            db.session.query(Delivery.project_id).filter_by(uploaded_by_id=user.id).distinct().count()
+    stats = {
+        user_id: (projects, bills)
+        for user_id, projects, bills in db.session.query(
+            Delivery.uploaded_by_id,
+            func.count(func.distinct(Delivery.project_id)),
+            func.count(Delivery.id),
         )
-        data["deliveryCount"] = Delivery.query.filter_by(uploaded_by_id=user.id).count()
+        .group_by(Delivery.uploaded_by_id)
+        .all()
+    }
+    result = []
+    for user in User.query.order_by(User.role, User.name).all():
+        data = user.to_admin_dict()
+        data["projectsUploadedTo"], data["deliveryCount"] = stats.get(user.id, (0, 0))
         result.append(data)
     return jsonify({"users": result})
 

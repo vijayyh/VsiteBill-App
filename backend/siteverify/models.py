@@ -77,6 +77,12 @@ class Project(db.Model):
 
 class Delivery(db.Model):
     __tablename__ = "deliveries"
+    __table_args__ = (
+        # Every gallery query is "this project's bills, newest first".
+        db.Index("ix_deliveries_project_uploaded_at", "project_id", "uploaded_at"),
+        db.Index("ix_deliveries_uploaded_by_id", "uploaded_by_id"),
+        db.Index("ix_deliveries_status", "status"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.String(20), db.ForeignKey("projects.id"), nullable=False)

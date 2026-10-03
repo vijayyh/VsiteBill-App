@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { api, ApiError } from '../../lib/api'
+import { compressImage } from '../../lib/compressImage'
 import { queueUpload } from '../../lib/offlineQueue'
 
 export function DeliveryDetails() {
@@ -43,16 +44,17 @@ export function DeliveryDetails() {
     setError(null)
     const successPath = `/supervisor/projects/${projectId}/success`
     const details = { vendor, item, delivered: quantity, poNumber }
+    const photo = await compressImage(file!)
 
     if (!navigator.onLine) {
-      await queueUpload(projectId, file!, file!.name || 'challan.jpg', details)
+      await queueUpload(projectId, photo, photo.name || 'bill.jpg', details)
       navigate(successPath, { state: { queued: true } })
       return
     }
 
     try {
       const form = new FormData()
-      form.append('photo', file!)
+      form.append('photo', photo)
       form.append('vendor', vendor)
       form.append('item', item)
       form.append('delivered', quantity)
@@ -65,7 +67,7 @@ export function DeliveryDetails() {
         setUploading(false)
         return
       }
-      await queueUpload(projectId, file!, file!.name || 'challan.jpg', details)
+      await queueUpload(projectId, photo, photo.name || 'bill.jpg', details)
       navigate(successPath, { state: { queued: true } })
     }
   }

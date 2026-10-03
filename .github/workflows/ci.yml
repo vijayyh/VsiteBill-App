@@ -23,6 +23,18 @@ jobs:
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest
+      - name: Production server smoke test (gunicorn + gunicorn.conf.py)
+        run: |
+          flask db upgrade
+          PORT=8000 gunicorn app:app > gunicorn.log 2>&1 &
+          server=$!
+          for i in $(seq 1 30); do curl -sf localhost:8000/api/health && break; sleep 1; done
+          # Fire concurrent requests; every one must succeed.
+          pids=""
+          for i in $(seq 1 10); do curl -sf -o /dev/null localhost:8000/api/health & pids="$pids $!"; done
+          for p in $pids; do wait $p; done
+          grep "Using worker: gthread" gunicorn.log
+          kill $server
 
   frontend:
     name: Frontend lint, type check & build

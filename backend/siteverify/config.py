@@ -31,6 +31,10 @@ class Config:
         os.environ.get("DATABASE_URL", f"sqlite:///{BASE_DIR / 'siteverify.db'}")
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Render's Postgres drops idle connections (e.g. while the free web service
+    # sleeps); test each pooled connection before use instead of failing the
+    # first request after a quiet spell.
+    SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
     JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-me")
     JWT_EXPIRES_HOURS = 24 * 7
     UPLOAD_DIR = UPLOAD_DIR

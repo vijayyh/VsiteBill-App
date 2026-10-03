@@ -72,6 +72,10 @@ locally before pushing. A red CI run means the live site did **not** update.
   timeout), which gunicorn loads automatically. Gunicorn doesn't run on Windows; CI smoke-tests it.
 - **Photos are shrunk in the browser before upload** (`frontend/src/lib/compressImage.ts`), and
   gallery thumbnails lazy-load (`AuthImage`). Keep both when touching the upload or gallery code.
+- **Service worker / offline / update banner can only be tested on a real build.** Use the
+  `siteverify-frontend-build` preview (`vite preview` on :4173, run `npm run build` first), not the
+  dev server. `UpdateBanner` relies on the existing `autoUpdate` behaviour (skipWaiting +
+  clientsClaim); changing `registerType` would break it.
 - **Render free plan sleeps after 15 min idle.** A slow first request after a quiet spell is that,
   not a bug. Measure before assuming otherwise.
 - **Timestamps** are stored as naive UTC; always serialize with `iso_utc()` from `models.py` or

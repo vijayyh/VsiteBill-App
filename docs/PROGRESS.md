@@ -34,11 +34,8 @@ roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
    delete the old one.
 4. ~~Reconnect Google Drive on production~~: done. It's connected to `vijay@sustaniq.in` (My
    Drive), with folders for all 3 projects (checked 2026-10-03).
-4b. **After a deploy, people who've opened the app before keep seeing the old version until they
-   reload once more.** The offline cache (service worker, `registerType: 'autoUpdate'`) installs the
-   new version in the background but doesn't refresh the open page. Seen on the live site:
-   2026-10-03. Possible fix: show a small "New version available — tap to update" banner (safer than
-   an automatic reload, which could wipe a bill a supervisor is halfway through filling in).
+4b. ~~After a deploy, people keep seeing the old version until they reload once more~~: fixed
+   2026-10-03 with an "A new version of SiteVerify is ready — Update" banner (see session log).
 5. The `vsitebill-api` web service is on Render's **free plan**: it sleeps after 15 min idle, so the
    first login/send/match after a quiet spell is slow. Undecided options: (a) a paid instance,
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
@@ -74,6 +71,27 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-03 — "New version ready" banner
+
+- Problem (seen on the live site): the offline cache (service worker, `autoUpdate`) installs a new
+  deploy in the background and takes over, but the open page keeps running the old code until it's
+  reloaded again.
+- `frontend/src/components/UpdateBanner.tsx`, shown at the top of every screen via `PhoneShell`:
+  when a new version replaces the one the page started with, it shows "A new version of SiteVerify
+  is ready" with **Update** (reloads) and **×** (dismiss). It doesn't reload automatically, so a
+  half-filled bill isn't lost. It also checks for new versions when the app returns to the
+  foreground and every 30 min, because an app left open never navigates and the browser wouldn't
+  look otherwise. The service-worker setup is unchanged, so people already using the app don't get
+  stuck on an old version.
+- Verified with a real production build (new `siteverify-frontend-build` preview in
+  `.claude/launch.json`, serving `vite preview` on :4173):
+  - First visit: no banner.
+  - Built a "version B" while the page stayed open: the foreground check showed the banner, with
+    the page still on version A.
+  - Tapping Update loaded version B and the banner went away. The test change was reverted.
+- Transition note: people currently on the old version get this code on their next reload; the
+  banner works from the deploy after that.
 
 ### 2026-10-03 — Accountants get view-only Google Drive access
 

@@ -86,7 +86,7 @@ def get_account() -> GoogleDriveAccount | None:
 
 
 def exchange_code(code: str, state: str) -> GoogleDriveAccount:
-    pending = DriveOAuthState.query.get(state)
+    pending = db.session.get(DriveOAuthState, state)
     if pending is None:
         raise ValueError("This connection attempt expired or was already used — try connecting again")
     connected_by_id = pending.admin_id

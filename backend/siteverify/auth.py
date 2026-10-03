@@ -6,6 +6,7 @@ from functools import wraps
 import jwt
 from flask import current_app, g, jsonify, request
 
+from .extensions import db
 from .models import User
 
 _PASSWORD_ALPHABET = string.ascii_uppercase + string.ascii_lowercase + string.digits
@@ -44,7 +45,7 @@ def login_required(fn):
         except jwt.PyJWTError:
             return jsonify({"error": "Invalid or expired token"}), 401
 
-        user = User.query.get(int(payload["sub"]))
+        user = db.session.get(User, int(payload["sub"]))
         if user is None:
             return jsonify({"error": "User no longer exists"}), 401
 

@@ -71,9 +71,12 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
 
 - `.github/workflows/ci.yml` runs on every push to `main` and every pull request. Two jobs: backend
   `pytest` on Python 3.14, and frontend `npm ci` + `npm run lint` + `npm run build` on Node 24.
-- Render's auto-deploy for **both** services should be set to "After CI checks pass" (Render →
-  service → Settings → Deploy → Auto-Deploy). This is done by hand in the dashboard; `render.yaml`
-  records it as `autoDeployTrigger: checksPass`.
+- Render's auto-deploy for **both** services (`vsitebill-api`, `vsitebill-app`) is now set to
+  "After CI Checks Pass" (Render → service → Settings → Deploy → Auto-Deploy). It was set in the
+  dashboard; `render.yaml` records it as `autoDeployTrigger: checksPass`.
+- Replaced the deprecated `Model.query.get()` with `db.session.get()` across the backend. This
+  removed the warnings the tests had been silencing, and was the first change sent through the full
+  CI-then-deploy chain.
 
 ### 2026-10-03 — Roadmap step 5: automated tests
 

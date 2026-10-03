@@ -32,7 +32,7 @@ def list_projects():
 @bp.get("/<project_id>")
 @login_required
 def get_project(project_id):
-    project = Project.query.get(project_id)
+    project = db.session.get(Project, project_id)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
     return jsonify({"project": project.to_dict()})
@@ -41,7 +41,7 @@ def get_project(project_id):
 @bp.get("/<project_id>/deliveries")
 @login_required
 def list_deliveries(project_id):
-    project = Project.query.get(project_id)
+    project = db.session.get(Project, project_id)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 

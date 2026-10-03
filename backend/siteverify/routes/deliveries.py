@@ -16,7 +16,7 @@ ALLOWED_STATUSES = {"PENDING", "REVIEW", "MATCHED"}
 @bp.post("/projects/<project_id>/deliveries")
 @login_required
 def create_delivery(project_id):
-    project = Project.query.get(project_id)
+    project = db.session.get(Project, project_id)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 
@@ -55,7 +55,7 @@ def create_delivery(project_id):
 @bp.get("/deliveries/<int:delivery_id>")
 @login_required
 def get_delivery(delivery_id):
-    delivery = Delivery.query.get(delivery_id)
+    delivery = db.session.get(Delivery, delivery_id)
     if delivery is None:
         return jsonify({"error": "Delivery not found"}), 404
     return jsonify({"delivery": delivery.to_dict()})
@@ -64,7 +64,7 @@ def get_delivery(delivery_id):
 @bp.patch("/deliveries/<int:delivery_id>")
 @login_required
 def update_delivery(delivery_id):
-    delivery = Delivery.query.get(delivery_id)
+    delivery = db.session.get(Delivery, delivery_id)
     if delivery is None:
         return jsonify({"error": "Delivery not found"}), 404
 
@@ -94,13 +94,13 @@ def update_delivery(delivery_id):
 @bp.post("/deliveries/<int:delivery_id>/save-to-drive")
 @login_required
 def save_delivery_to_drive(delivery_id):
-    delivery = Delivery.query.get(delivery_id)
+    delivery = db.session.get(Delivery, delivery_id)
     if delivery is None:
         return jsonify({"error": "Delivery not found"}), 404
     if delivery.drive_file_id:
         return jsonify({"error": "This delivery is already saved to Drive", "delivery": delivery.to_dict()}), 409
 
-    project = Project.query.get(delivery.project_id)
+    project = db.session.get(Project, delivery.project_id)
 
     try:
         delivery = drive.upload_delivery_photo(project, delivery)

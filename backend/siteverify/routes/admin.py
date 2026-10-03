@@ -83,7 +83,7 @@ def create_user():
 @bp.post("/users/<int:user_id>/reset-password")
 @require_role("admin")
 def reset_user_password(user_id):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if user is None:
         return jsonify({"error": "User not found"}), 404
 
@@ -107,7 +107,7 @@ def list_password_resets():
 @bp.post("/password-resets/<int:request_id>/resolve")
 @require_role("admin")
 def resolve_password_reset(request_id):
-    reset_request = PasswordResetRequest.query.get(request_id)
+    reset_request = db.session.get(PasswordResetRequest, request_id)
     if reset_request is None:
         return jsonify({"error": "Request not found"}), 404
     if reset_request.status == "RESOLVED":
@@ -137,7 +137,7 @@ def create_project():
         accent = "accent"
 
     project_id = code.lower().replace(" ", "-")
-    if Project.query.get(project_id) is not None or Project.query.filter_by(code=code).first() is not None:
+    if db.session.get(Project, project_id) is not None or Project.query.filter_by(code=code).first() is not None:
         return jsonify({"error": "A project with that code already exists"}), 409
 
     project = Project(id=project_id, code=code, name=name, accent=accent)
@@ -158,7 +158,7 @@ def create_project():
 @bp.patch("/projects/<project_id>")
 @require_role("admin")
 def update_project(project_id):
-    project = Project.query.get(project_id)
+    project = db.session.get(Project, project_id)
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 

@@ -145,8 +145,9 @@ export function Field({
       </label>
       <input
         {...input}
-        className={`w-full rounded-[16px] glass-strong px-4 py-3 text-[14.5px] text-ink outline-none focus:ring-2 focus:ring-accent/40 ${
-          invalid ? 'ring-2 ring-warning-text/60' : ''
+        /* outline, not ring: the glass utility's box-shadow would cancel a ring */
+        className={`w-full rounded-[16px] glass-strong px-4 py-3 text-[14.5px] text-ink placeholder:text-ink-faint outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40 ${
+          invalid ? 'outline-2 outline-warning-text/70' : ''
         }`}
       />
       {hint && <div className="text-[11.5px] text-ink-muted mt-1 ml-3">{hint}</div>}

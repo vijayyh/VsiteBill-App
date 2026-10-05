@@ -183,7 +183,7 @@ export function AdminDashboard() {
         </Link>
         <Link to="/admin/deliveries" className="glass rounded-card p-3.5 text-left">
           <div className="text-xl font-bold">{overview?.deliveryCount ?? '–'}</div>
-          <div className="text-[11px] text-ink-muted mt-0.5">Deliveries logged</div>
+          <div className="text-[11px] text-ink-muted mt-0.5">Bills logged</div>
         </Link>
         <button
           onClick={() => document.getElementById('notifications')?.scrollIntoView({ behavior: 'smooth' })}

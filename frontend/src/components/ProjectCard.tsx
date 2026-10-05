@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { GRADIENT } from '../lib/projectColors'
 import type { ProjectAccent } from '../lib/types'
 
-const GRADIENT: Record<ProjectAccent, string> = {
-  accent: 'from-[#1a3c5e] to-[#2f5f8a]',
-  forest: 'from-[#2b5d3e] to-[#3f7d57]',
-  clay: 'from-[#8a5300] to-[#b06d12]',
-}
-
 /** A white-on-colour site skyline, standing in for a project photo. */
-function Skyline() {
+export function Skyline() {
   return (
     <svg viewBox="0 0 200 80" className="absolute right-0 bottom-0 h-[78%] opacity-25" fill="white" aria-hidden>
       <rect x="10" y="38" width="22" height="42" />

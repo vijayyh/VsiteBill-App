@@ -23,7 +23,7 @@ export function AddBill() {
             accent={project.accent}
             footer={
               <div className="flex items-center justify-between text-[12.5px]">
-                <span className="text-ink-muted">Photograph the challan for this site</span>
+                <span className="text-ink-muted">Photograph the bill for this site</span>
                 <span className="font-bold text-accent">Choose →</span>
               </div>
             }

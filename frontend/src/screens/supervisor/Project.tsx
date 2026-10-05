@@ -3,19 +3,24 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
 import { PhotoViewer } from '../../components/PhotoViewer'
-import { ScreenHeader } from '../../components/ScreenHeader'
+import { ProjectHero } from '../../components/ProjectHero'
 import { StatusBadge } from '../../components/StatusBadge'
-import { IconCamera, IconClock } from '../../components/icons'
+import { EmptyState, FilterTabs, btnPrimary, type TabOption } from '../../components/ui'
+import { IconBill, IconCamera, IconCheck, IconClock } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
 import { subscribeQueue, useQueuedUploads, type QueuedUpload } from '../../lib/offlineQueue'
 import type { Delivery, Project } from '../../lib/types'
 
 type Tab = 'WAITING' | 'TODAY' | 'ALL'
 
-const EMPTY_MESSAGE: Record<Tab, string> = {
-  WAITING: 'Nothing waiting. Bills added with no signal wait here and send by themselves when you’re back online.',
-  TODAY: 'You haven’t sent any bills today.',
-  ALL: 'You haven’t added any bills to this project yet.',
+const EMPTY: Record<Tab, { icon: typeof IconBill; title: string; body: string }> = {
+  WAITING: {
+    icon: IconClock,
+    title: 'Nothing waiting',
+    body: 'Bills added with no signal wait here and send by themselves when you’re back online.',
+  },
+  TODAY: { icon: IconCheck, title: 'Nothing sent today', body: 'Bills you send today will show up here.' },
+  ALL: { icon: IconBill, title: 'No bills yet', body: 'Tap “Add a bill” to photograph your first bill for this project.' },
 }
 
 function QueuedPhotoThumb({ blob }: { blob: Blob }) {
@@ -31,12 +36,11 @@ function QueuedPhotoThumb({ blob }: { blob: Blob }) {
   return <img src={url} alt="" className="w-full h-full object-cover" />
 }
 
-const thumbClass = 'w-[60px] h-[60px] rounded-lg bg-camera-bg flex-shrink-0 overflow-hidden'
-const cardClass = 'flex gap-3 bg-surface border rounded-card p-3 shadow-[0_1px_2px_rgba(20,24,26,0.04)]'
+const thumbClass = 'w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70'
 
 function WaitingCard({ item }: { item: QueuedUpload }) {
   return (
-    <div className={`${cardClass} border-warning-border`}>
+    <div className="glass rounded-card flex gap-3 p-3 ring-1 ring-warning-border/60">
       <div className={thumbClass}>
         <QueuedPhotoThumb blob={item.blob} />
       </div>
@@ -61,7 +65,7 @@ function WaitingCard({ item }: { item: QueuedUpload }) {
 
 function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: (src: string) => void }) {
   return (
-    <div className={`${cardClass} border-border`}>
+    <div className="glass rounded-card flex gap-3 p-3">
       <button
         type="button"
         onClick={() => delivery.photoUrl && onViewPhoto(delivery.photoUrl)}
@@ -109,54 +113,53 @@ export function SupervisorProject() {
   const sent = deliveriesData?.deliveries ?? []
   const today = new Date().toDateString()
   const sentToday = sent.filter((d) => new Date(d.uploadedAt).toDateString() === today)
+  const flagged = sent.filter((d) => d.status === 'REVIEW').length
 
-  const tabs: { key: Tab; label: string; count: number; active: string; idle: string }[] = [
-    { key: 'WAITING', label: 'Waiting to send', count: queued.length, active: 'bg-warning-text text-white', idle: 'bg-warning-bg text-warning-text' },
-    { key: 'TODAY', label: 'Sent today', count: sentToday.length, active: 'bg-success-text text-white', idle: 'bg-success-bg text-success-text' },
-    { key: 'ALL', label: 'All bills', count: sent.length + queued.length, active: 'bg-accent text-white', idle: 'bg-surface text-ink border border-border' },
+  const tabs: TabOption<Tab>[] = [
+    { key: 'ALL', label: 'All bills', count: sent.length + queued.length },
+    { key: 'WAITING', label: 'Waiting to send', count: queued.length, dot: 'bg-warning-text' },
+    { key: 'TODAY', label: 'Sent today', count: sentToday.length, dot: 'bg-success-text' },
   ]
 
   const showQueued = tab === 'WAITING' || tab === 'ALL'
   const visibleSent = tab === 'TODAY' ? sentToday : tab === 'ALL' ? sent : []
   const isEmpty = (showQueued ? queued.length : 0) + visibleSent.length === 0
+  const empty = EMPTY[tab]
 
   return (
-    <div className="flex flex-col flex-grow min-h-0 text-ink">
-      <ScreenHeader backTo="/supervisor" title={project?.code ?? ''} subtitle={project?.name} />
+    <div className="flex flex-col flex-grow text-ink">
+      <ProjectHero
+        backTo="/supervisor"
+        code={project?.code}
+        name={project?.name}
+        accent={project?.accent}
+        stats={[
+          { value: sentToday.length, label: 'Sent today' },
+          { value: queued.length, label: 'Waiting' },
+          { value: flagged, label: 'Flagged' },
+        ]}
+      />
 
-      <div className="flex-shrink-0 px-4 pt-4 pb-2">
-        <Link
-          to={`/supervisor/projects/${projectId}/upload`}
-          className="flex items-center justify-center gap-2.5 w-full py-5 rounded-cta bg-accent text-white"
-        >
-          <IconCamera size={24} stroke="#FFFFFF" />
-          <div className="text-base font-bold">Add a bill</div>
+      <div className="px-5 pt-4">
+        <Link to={`/supervisor/projects/${projectId}/upload`} className={`${btnPrimary} w-full py-4 text-[15px]`}>
+          <IconCamera size={21} stroke="#FFFFFF" />
+          Add a bill
         </Link>
       </div>
 
-      <div className="flex-shrink-0 flex gap-2 px-4 pt-2 pb-2 overflow-x-auto [scrollbar-width:none]">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-shrink-0 text-[12px] font-bold rounded-full px-3.5 py-1.5 ${tab === t.key ? t.active : t.idle}`}
-          >
-            {t.label} · {t.count}
-          </button>
-        ))}
+      <div className="mt-4">
+        <FilterTabs tabs={tabs} value={tab} onChange={setTab} />
       </div>
 
-      <div className="flex-grow overflow-y-auto px-4 pt-1.5 pb-4 flex flex-col gap-2.5">
-        {deliveriesLoading && <div className="text-sm text-ink-muted text-center mt-6">Loading bills…</div>}
-        {!deliveriesLoading && isEmpty && (
-          <div className="text-sm text-ink-muted text-center mt-6 px-6 leading-relaxed">{EMPTY_MESSAGE[tab]}</div>
-        )}
+      <div className="px-5 pt-3 pb-8 flex flex-col gap-2.5">
+        {deliveriesLoading && <div className="text-sm text-ink-muted text-center mt-4">Loading bills…</div>}
+        {!deliveriesLoading && isEmpty && <EmptyState icon={empty.icon} title={empty.title} body={empty.body} />}
         {showQueued && queued.map((item) => <WaitingCard key={item.id} item={item} />)}
         {visibleSent.map((delivery) => (
           <SentCard key={delivery.id} delivery={delivery} onViewPhoto={setViewerSrc} />
         ))}
         {!isEmpty && (
-          <div className="text-xs text-ink-faint text-center mt-2 leading-relaxed">
+          <div className="text-[11.5px] text-ink-faint text-center mt-2 leading-relaxed">
             The office team checks each bill against its purchase order.
           </div>
         )}

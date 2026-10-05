@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
-import { IconAlertTriangle, IconCamera, IconCheck, IconCloud } from '../../components/icons'
+import { Card, Field, btnPrimary, btnSecondary } from '../../components/ui'
+import { IconAlertTriangle, IconCamera, IconCheck, IconClipboardCheck, IconCloud } from '../../components/icons'
 import { api, ApiError, useApiGet } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 import type { Delivery, Project } from '../../lib/types'
 
 export function ReviewDelivery() {
   const { projectId = '', deliveryId = '' } = useParams()
+  const location = useLocation()
+  // Lists that open a bill (Home, Review queue) pass where they are so back/save returns there.
+  const backTo = (location.state as { from?: string } | null)?.from ?? `/accountant/projects/${projectId}/gallery`
   const { data: projectData, error: projectError } = useApiGet<{ project: Project }>(
     `/api/projects/${projectId}`,
   )
@@ -50,7 +54,7 @@ export function ReviewDelivery() {
   if (!delivery || !project) {
     return (
       <div className="flex flex-col flex-grow text-ink">
-        <ScreenHeader backTo={`/accountant/projects/${projectId}/gallery`} title="Review bill" />
+        <ScreenHeader backTo={backTo} title="Review bill" />
         <div className="flex-grow flex items-center justify-center text-sm text-ink-muted">Loading…</div>
       </div>
     )
@@ -98,247 +102,213 @@ export function ReviewDelivery() {
         note,
         status,
       })
-      navigate(`/accountant/projects/${projectId}/gallery`)
+      navigate(backTo)
     } catch {
       setSaving(false)
     }
   }
 
+  // Until the PO's ordered quantity is entered there's nothing to compare against.
+  const comparable = orderedQty.trim() !== '' && quantity.trim() !== ''
+  const tone = !comparable
+    ? { text: 'text-ink-muted', bg: 'bg-white/80', stroke: 'var(--color-ink-muted)' }
+    : hasDiscrepancy
+      ? { text: 'text-warning-text', bg: 'bg-warning-bg', stroke: 'var(--color-warning-text)' }
+      : { text: 'text-success-text', bg: 'bg-success-bg', stroke: 'var(--color-success-text)' }
+
   return (
     <div className="flex flex-col flex-grow text-ink">
       <ScreenHeader
-        backTo={`/accountant/projects/${project.id}/gallery`}
+        backTo={backTo}
         title="Review bill"
         subtitle={`${project.code} · ${project.name}`}
+        action={<StatusBadge status={delivery.status} />}
       />
 
-      <div className="flex-grow overflow-y-auto px-4 py-3.5 flex flex-col gap-3.5">
-        <div className="flex gap-2.5">
-          <div className="flex flex-col gap-1.5">
-            <button
-              type="button"
-              onClick={() => delivery.photoUrl && setViewerOpen(true)}
-              className="w-[84px] h-[84px] rounded-btn bg-camera-bg flex-shrink-0 flex items-center justify-center overflow-hidden"
-            >
-              {delivery.photoUrl ? (
-                <AuthImage src={delivery.photoUrl} className="w-full h-full object-cover" />
-              ) : (
-                <IconCamera size={28} stroke="#8D9A9E" />
-              )}
-            </button>
-            {delivery.photoUrl && (
-              <button
-                type="button"
-                onClick={() => setViewerOpen(true)}
-                className="text-[10.5px] font-semibold text-accent"
-              >
-                View bill photo
-              </button>
+      <div className="flex-grow px-5 pt-2 pb-4 flex flex-col gap-4">
+        <Card className="p-1.5">
+          <button
+            type="button"
+            onClick={() => delivery.photoUrl && setViewerOpen(true)}
+            aria-label="View bill photo"
+            className="relative block w-full aspect-[4/3] rounded-[14px] bg-camera-bg overflow-hidden"
+          >
+            {delivery.photoUrl ? (
+              <AuthImage src={delivery.photoUrl} className="w-full h-full object-cover" />
+            ) : (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <IconCamera size={32} stroke="#8D9A9E" />
+              </span>
             )}
-          </div>
-          <div className="flex-grow flex flex-col justify-center gap-1.5 min-w-0">
-            <div>
-              <StatusBadge status={delivery.status} />
-            </div>
-            <div className="flex items-center gap-1.5">
-              {hasDiscrepancy ? (
-                <>
-                  <IconAlertTriangle size={14} stroke="var(--color-warning-text)" strokeWidth={2.5} />
-                  <div className="text-[13px] font-bold text-warning-text">Quantity mismatch</div>
-                </>
-              ) : (
-                <>
-                  <IconCheck size={14} stroke="var(--color-success-text)" strokeWidth={2.5} />
-                  <div className="text-[13px] font-bold text-success-text">Quantities match</div>
-                </>
-              )}
-            </div>
-            <div className="text-[11.5px] text-ink-muted">
-              {delivery.uploadedBy ? `Uploaded by ${delivery.uploadedBy}` : 'Uploaded'} ·{' '}
+            {delivery.photoUrl && (
+              <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/45 ring-1 ring-white/30 backdrop-blur text-white text-[12px] font-bold px-3 py-1.5">
+                Tap to enlarge
+              </span>
+            )}
+          </button>
+          <div className="flex items-center justify-between gap-2 px-2.5 pt-2.5 pb-1.5">
+            <div className="text-[11.5px] text-ink-muted min-w-0 truncate">
+              {delivery.uploadedBy ? `${delivery.uploadedBy} · ` : ''}
               {formatDateTime(delivery.uploadedAt)}
             </div>
+            {delivery.photoUrl &&
+              (delivery.driveFileId ? (
+                <a
+                  href={delivery.driveWebViewLink ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-shrink-0 flex items-center gap-1 text-[12px] font-bold text-success-text bg-success-bg rounded-full px-2.5 py-1"
+                >
+                  <IconCheck size={13} stroke="var(--color-success-text)" strokeWidth={2.5} />
+                  In Drive ↗
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={saveToDrive}
+                  disabled={savingToDrive}
+                  className="flex-shrink-0 flex items-center gap-1 text-[12px] font-bold text-accent bg-info-bg rounded-full px-2.5 py-1 disabled:opacity-60"
+                >
+                  <IconCloud size={13} stroke="var(--color-accent)" />
+                  {savingToDrive ? 'Saving…' : 'Save to Drive'}
+                </button>
+              ))}
           </div>
-        </div>
+          {driveError && <div className="text-[12px] font-semibold text-warning-text px-2.5 pb-1.5">{driveError}</div>}
+        </Card>
 
-        {delivery.photoUrl && (
-          <div>
-            {driveError && <div className="text-[12px] font-semibold text-warning-text mb-1.5">{driveError}</div>}
-            {delivery.driveFileId ? (
-              <a
-                href={delivery.driveWebViewLink ?? undefined}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-[12.5px] font-semibold text-success-text"
-              >
-                <IconCheck size={14} stroke="var(--color-success-text)" strokeWidth={2.5} />
-                Saved to Drive — view file
-              </a>
-            ) : (
-              <button
-                type="button"
-                onClick={saveToDrive}
-                disabled={savingToDrive}
-                className="flex items-center gap-1.5 text-[12.5px] font-semibold text-accent disabled:opacity-60"
-              >
-                <IconCloud size={15} stroke="var(--color-accent)" />
-                {savingToDrive ? 'Saving to Drive…' : 'Save to Drive'}
-              </button>
-            )}
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center ${tone.bg}`}>
+              {!comparable ? (
+                <IconClipboardCheck size={14} stroke={tone.stroke} />
+              ) : hasDiscrepancy ? (
+                <IconAlertTriangle size={14} stroke={tone.stroke} strokeWidth={2.5} />
+              ) : (
+                <IconCheck size={14} stroke={tone.stroke} strokeWidth={2.6} />
+              )}
+            </span>
+            <div className={`text-[14px] font-bold ${tone.text}`}>
+              {!comparable
+                ? 'Enter both quantities to compare'
+                : hasDiscrepancy
+                  ? 'Quantity mismatch'
+                  : 'Quantities match'}
+            </div>
           </div>
-        )}
+          <div className="grid grid-cols-3 mt-3.5 rounded-[14px] bg-white/60 ring-1 ring-white divide-x divide-black/[0.06] text-center">
+            <div className="py-2.5">
+              <div className="text-[11px] text-ink-muted">Ordered</div>
+              <div className="text-[20px] font-bold leading-tight mt-0.5">{orderedQty.trim() ? ordered : '—'}</div>
+            </div>
+            <div className="py-2.5">
+              <div className="text-[11px] text-ink-muted">Delivered</div>
+              <div className="text-[20px] font-bold leading-tight mt-0.5">{quantity.trim() ? delivered : '—'}</div>
+            </div>
+            <div className="py-2.5">
+              <div className={`text-[11px] ${tone.text}`}>
+                {!comparable ? 'Difference' : diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference'}
+              </div>
+              <div className={`text-[20px] font-bold leading-tight mt-0.5 ${tone.text}`}>
+                {comparable ? Math.abs(diff) : '—'}
+              </div>
+            </div>
+          </div>
+        </Card>
 
         <div>
-          <div className="text-[11.5px] font-bold text-ink-muted uppercase tracking-wide mb-2">
-            Bill details
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <div>
-              <label className="text-[11.5px] font-semibold text-label mb-[5px] block" htmlFor="vendor">
-                Vendor
-              </label>
-              <input
-                id="vendor"
-                className={`w-full rounded-field border px-[11px] py-2.5 text-[13px] bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                  showErrors && !vendor.trim() ? 'border-warning-text' : 'border-border-strong'
-                }`}
-                value={vendor}
-                onChange={(e) => setVendor(e.target.value)}
+          <div className="text-[12px] font-bold text-ink-muted uppercase tracking-wide mb-2.5 ml-1">Bill details</div>
+          <div className="flex flex-col gap-3.5">
+            <Field
+              id="vendor"
+              label="Vendor"
+              invalid={showErrors && !vendor.trim()}
+              value={vendor}
+              onChange={(e) => setVendor(e.target.value)}
+            />
+            <Field
+              id="item"
+              label="Item description"
+              invalid={showErrors && !item.trim()}
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Field
+                id="ordered-qty"
+                label="Ordered qty"
+                inputMode="decimal"
+                invalid={showErrors && !orderedQty.trim()}
+                value={orderedQty}
+                onChange={(e) => setOrderedQty(e.target.value)}
               />
-            </div>
-            <div>
-              <label className="text-[11.5px] font-semibold text-label mb-[5px] block" htmlFor="item">
-                Item description
-              </label>
-              <input
-                id="item"
-                className={`w-full rounded-field border px-[11px] py-2.5 text-[13px] bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                  showErrors && !item.trim() ? 'border-warning-text' : 'border-border-strong'
-                }`}
-                value={item}
-                onChange={(e) => setItem(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className="text-[11.5px] font-semibold text-label mb-[5px] block" htmlFor="ordered-qty">
-                  Ordered qty
-                </label>
-                <input
-                  id="ordered-qty"
-                  inputMode="decimal"
-                  className={`w-full rounded-field border px-[11px] py-2.5 text-[13px] bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                    showErrors && !orderedQty.trim() ? 'border-warning-text' : 'border-border-strong'
-                  }`}
-                  value={orderedQty}
-                  onChange={(e) => setOrderedQty(e.target.value)}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5 mb-[5px]">
-                  <label className="text-[11.5px] font-semibold text-label" htmlFor="qty">
+              <Field
+                id="qty"
+                label={
+                  <>
                     Delivered qty
-                  </label>
-                  {delivery.quantityLowConfidence && (
-                    <span className="text-[9px] font-bold text-warning-text bg-warning-bg rounded px-[5px] py-px">
-                      DOUBLE-CHECK
-                    </span>
-                  )}
-                </div>
-                <input
-                  id="qty"
-                  inputMode="decimal"
-                  className={`w-full rounded-field border px-[11px] py-2.5 text-[13px] bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                    delivery.quantityLowConfidence || (showErrors && !quantity.trim())
-                      ? 'border-warning-text'
-                      : 'border-border-strong'
-                  }`}
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
+                    {delivery.quantityLowConfidence && (
+                      <span className="text-[9px] font-bold text-warning-text bg-warning-bg rounded px-[5px] py-px">
+                        DOUBLE-CHECK
+                      </span>
+                    )}
+                  </>
+                }
+                inputMode="decimal"
+                invalid={delivery.quantityLowConfidence || (showErrors && !quantity.trim())}
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
             </div>
+            <Field
+              id="po"
+              label="PO number"
+              invalid={showErrors && !poNumber.trim()}
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
+            />
             <div>
-              <label className="text-[11.5px] font-semibold text-label mb-[5px] block" htmlFor="po">
-                PO number
+              <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 block" htmlFor="note">
+                Note (optional)
               </label>
-              <input
-                id="po"
-                className={`w-full rounded-field border px-[11px] py-2.5 text-[13px] bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                  showErrors && !poNumber.trim() ? 'border-warning-text' : 'border-border-strong'
-                }`}
-                value={poNumber}
-                onChange={(e) => setPoNumber(e.target.value)}
+              <textarea
+                id="note"
+                rows={2}
+                placeholder="e.g. Short by 10 bags — vendor to send the remainder"
+                className="w-full rounded-[16px] glass-strong px-4 py-3 text-[13.5px] text-ink placeholder:text-ink-faint resize-none outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
               />
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="bg-surface border border-border rounded-card p-3.5">
-          <div className="text-[11.5px] font-bold text-ink-muted uppercase tracking-wide mb-2.5">
-            Ordered vs delivered
+      <div className="sticky bottom-0 z-10 px-3 pb-3 pt-2">
+        <div className="glass-strong rounded-[24px] p-2.5 flex flex-col gap-2">
+          {showErrors && missingFields.length > 0 && (
+            <div className="text-[12px] font-semibold text-warning-text text-center pt-1">
+              Fill in {missingFields.join(', ')} before confirming a match.
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => save('REVIEW')}
+              disabled={saving}
+              className={`${btnSecondary} flex-1 py-3.5 text-[13.5px] text-warning-text`}
+            >
+              <IconAlertTriangle size={15} stroke="var(--color-warning-text)" strokeWidth={2.4} />
+              {delivery.status === 'REVIEW' ? 'Keep flagged' : 'Flag'}
+            </button>
+            <button onClick={() => save('MATCHED')} disabled={saving} className={`${btnPrimary} flex-[1.4] py-3.5 text-[14px]`}>
+              <IconCheck size={16} stroke="#FFFFFF" strokeWidth={2.6} />
+              {delivery.status === 'MATCHED' ? 'Save as matched' : 'Confirm match'}
+            </button>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <div className="text-[11px] text-ink-muted mb-1">Ordered</div>
-              <div className="text-[19px] font-bold">{ordered}</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-ink-muted mb-1">Delivered</div>
-              <div className="text-[19px] font-bold">{delivered}</div>
-            </div>
-            <div>
-              <div className={`text-[11px] mb-1 ${hasDiscrepancy ? 'text-warning-text' : 'text-success-text'}`}>
-                {diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference'}
-              </div>
-              <div className={`text-[19px] font-bold ${hasDiscrepancy ? 'text-warning-text' : 'text-success-text'}`}>
-                {Math.abs(diff)}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-[11.5px] font-semibold text-label mb-[5px] block" htmlFor="note">
-            Note (optional)
-          </label>
-          <textarea
-            id="note"
-            rows={2}
-            placeholder="e.g. Short by 10 bags — vendor to send the remainder"
-            className="w-full rounded-field border border-border-strong px-[11px] py-2.5 text-xs bg-surface resize-none focus:outline-2 focus:outline-accent focus:outline-offset-1"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
         </div>
       </div>
 
-      <div className="flex-shrink-0 px-4 pt-3 pb-[22px] bg-surface border-t border-border flex flex-col gap-2.5">
-        {showErrors && missingFields.length > 0 && (
-          <div className="text-[12px] font-semibold text-warning-text text-center">
-            Fill in {missingFields.join(', ')} before confirming a match.
-          </div>
-        )}
-        <div className="flex gap-2.5">
-          <button
-            onClick={() => save('REVIEW')}
-            disabled={saving}
-            className="flex-grow py-3 rounded-btn border border-border-strong text-ink text-[13.5px] font-semibold disabled:opacity-60"
-          >
-            {delivery.status === 'REVIEW' ? 'Keep flagged' : 'Flag for follow-up'}
-          </button>
-          <button
-            onClick={() => save('MATCHED')}
-            disabled={saving}
-            className="flex-grow py-3 rounded-btn bg-accent text-white text-[13.5px] font-bold disabled:opacity-60"
-          >
-            {delivery.status === 'MATCHED' ? 'Save as matched' : 'Confirm match'}
-          </button>
-        </div>
-      </div>
-
-      {viewerOpen && (
-        <PhotoViewer src={delivery.photoUrl} onClose={() => setViewerOpen(false)} />
-      )}
+      {viewerOpen && <PhotoViewer src={delivery.photoUrl} onClose={() => setViewerOpen(false)} />}
     </div>
   )
 }

@@ -21,11 +21,14 @@ the live fixes were the mobile-app work: `87a76f8` (website, live), then `3ff2e2
   review or edit bills or see other supervisors' bills; admin password reset shows the new
   password; admin can reset any user's password and edit projects; the API root shows a status
   page. 87 backend tests.
-- **Android app v1.0.0 built.** Everything for it is in its own top-level `android/` folder, with
-  its own `android/README.md` (how it works, signing key, how to rebuild). It opens the live site
-  full-screen, so web deploys reach it automatically. Tested on an emulator; not yet installed on
-  real phones or published. The APK/AAB are git-ignored (`android/SiteVerify-1.0.0.apk` on the home
-  machine). **iPhone:** Safari → Add to Home Screen; not yet checked on a real iPhone.
+- **Android app v1.0.1** (new icon, navy native splash). Everything for it is in its own top-level
+  `android/` folder, with its own `android/README.md`. It opens the live site full-screen, so web
+  deploys reach it automatically. v1.0.0 is installed on the user's phone, and v1.0.1 must be
+  installed over it once to get the new icon. The APK/AAB are git-ignored
+  (`android/SiteVerify-1.0.1.apk` on the home machine). **iPhone:** Safari → Add to Home Screen;
+  not yet checked on a real iPhone.
+- **New logo and animated opening splash are live** on web and in both apps. The splash wakes the
+  sleeping server and waits up to 5 s (see the session log).
 
 **Next step:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
@@ -109,6 +112,41 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-05 — New app icon and animated opening splash; Android app v1.0.1 (home)
+
+- **Logo:** the user picked "Minimal document" out of three directions: a white document with a
+  folded corner, a navy header line and a bold green check, on a navy tile whose glow fades to
+  exactly `#1A3C5E` at the edges. Master SVGs are in `frontend/brand/` (`icon.svg` rounded,
+  `icon-maskable.svg` full-bleed). `npm run icons` (sharp, dev dependency) regenerates
+  `pwa-192/512.png`, `pwa-maskable-512.png`, `apple-touch-icon.png` (zoomed for iOS),
+  `favicon.svg`, and plain-navy iPhone launch images (`public/splash/`, kept out of the offline
+  cache). The login header uses the new logo.
+- **Opening splash** (`frontend/index.html` + `src/lib/splash.ts`), once per session:
+  - The first frame is plain HTML/CSS and identical to the Android native splash (`pwa-512.png` at
+    300 px on navy), so the native-to-web handover shows no change of picture. (The web copy sits
+    ~14 px lower on the test emulator: Android centres on the whole screen, the page below the
+    status bar. The native fade was lengthened to 500 ms to blend it.)
+  - The intro (CSS) starts once the app has rendered underneath (`playSplash()` in an `App`
+    effect), held until the Android native splash has finished fading. It first started at first
+    paint, but on a cold start the phone is busy loading the app then, and the animation froze for
+    ~2 s and jumped to its end (seen in emulator frame captures). The tile fades into a soft aura,
+    the document lifts, a light sweeps across it, the check is "stamped" with a ripple,
+    "SiteVerify" rises in letter by letter (Verify in green), then the tagline and
+    "KH Group · Sustaniq".
+  - Server wake-up: `/api/health` is pinged immediately. The splash waits for it up to 5 s total
+    (user's choice), showing "Waking up the server…" after 2.4 s, then opens the app anyway.
+    Offline: no wait, shows "No signal — you can still add bills". The server is pinged again when
+    the app comes back after 10+ min. Login shows a "server is waking up" note after 5 s.
+  - Measured (emulator Chrome): awake → app at ~1.9 s after the animation starts; asleep → hint at
+    2.4 s, app at 5.0 s; offline → 2.8 s; reload in the same session → no splash. Production
+    build: animation starts ~0.5 s after opening.
+- **Android v1.0.1** (code 2): new launcher icon and native splash (from the live icons via
+  `bubblewrap update`), navy `backgroundColor`, 500 ms native fade. Installed as an update over
+  v1.0.0 on the emulator (same signing key), and the cold launch was checked frame by frame: home
+  icon → native navy splash → identical web frame → animation → app.
+- Commits: `db3d1cc` (icons + splash), `2d4feef` (docs), `369bb41` (intro after first render),
+  then the regenerated `android/` project.
 
 ### 2026-10-05 — Android app (APK) and iPhone home-screen support (home)
 

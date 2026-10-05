@@ -7,7 +7,7 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-03 (office machine)_
+_Last updated: 2026-10-05 (home machine)_
 
 **State:** Roadmap steps 1 (migrations), 2 (photo storage), 5 (automated tests) and 6 (CI/CD)
 are done and verified on the live site. Steps 3 and 4 were deliberately skipped for now and are
@@ -17,7 +17,28 @@ real uploads). Supervisors now see all their bills, not just today's.
 
 Step 9 (scaling) is also done; steps 7 and 8 were skipped for now.
 
-**Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
+**IN PROGRESS: UI redesign, on branch `ui-redesign` (not merged, not live).** This is the
+glass-style rebuild based on the user's Dribbble reference.
+- Decisions: keep navy, colour project cards (no photos), in-app alerts with an unread badge, a
+  welcome screen, and "Classic frosted glass".
+- Done:
+  - Glass theme (`index.css`: `glass`, `glass-strong`, colour-patch `bg-page`) and the shared
+    pieces in `components/ui.tsx`.
+  - `BottomNav` (role tabs with a raised centre button), `AppHeader`/`BellButton`, `ProjectCard`,
+    `BillRow`, `ProjectCounts`.
+  - Welcome, Login, supervisor Home / My bills / Add bill, shared Alerts and Profile (change
+    password, sign out), accountant Home / Projects / Review queue, and admin moved into the bottom
+    bar via `AdminShell`.
+  - Backend: notifications (`notify.py`, `/api/notifications`, migration `d0dc350e48df`),
+    `/api/auth/change-password`, `GET /api/deliveries` (cross-project; supervisors see only their
+    own), and phone on `/api/auth/me`. 74 backend tests pass; the frontend type-checks.
+- **All screens restyled (2026-10-05, home):** supervisor Project, UploadOptions, DeliveryDetails,
+  UploadSuccess; accountant ProjectGallery and ReviewDelivery; ForgotPassword. Both project
+  screens share a new colour hero header (`components/ProjectHero.tsx`). Every screen checked in
+  the preview; lint (warnings only, as before) and build pass.
+- **Still to do:** merge `ui-redesign` to `main` (which deploys it) and check the live site.
+
+**Next step after that:** the user decides how to handle the free-plan sleep (open item 5). Still open:
 roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
 
 ### Open items (most urgent first)
@@ -71,6 +92,31 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-05 — UI redesign: remaining screens restyled (home, branch `ui-redesign`)
+
+- Home machine set up: Python 3.14.7 (winget), backend venv, `npm install`, local SQLite via
+  `flask db upgrade`. `backend/.env` was copied from the template with empty values, so Google Drive
+  doesn't work locally until the `GOOGLE_*` values are filled in from Render.
+- New `components/ProjectHero.tsx`: the colour project header (back button, code/name, Drive pill,
+  a frosted strip of counts). Used by the supervisor Project screen (sent today / waiting / flagged)
+  and the accountant ProjectGallery (pending / flagged / matched). The project gradients moved to
+  `lib/projectColors.ts`.
+- Restyled supervisor Project (glass cards, `FilterTabs`, empty states), the camera/gallery choice
+  sheet (frosted bottom sheet over the dimmed project), the bill details form (shared `Field`,
+  Retake button on the photo, sticky send bar) and the success screen; accountant ReviewDelivery
+  (large photo, Drive chip, comparison card, sticky Flag / Confirm match bar); ForgotPassword.
+- Fixes found along the way:
+  - `Field` error and focus outlines never showed: the glass box-shadow cancelled Tailwind's `ring`.
+    Now uses `outline`, which also fixes the Profile change-password form.
+  - ReviewDelivery ignored the `from` state that Home and the Review queue pass, so back and save
+    always went to the project gallery. Now they return to where the bill was opened from.
+  - The comparison card said "Quantity mismatch / Extra 300" before any ordered quantity was
+    entered. It now shows a neutral "Enter both quantities to compare".
+  - Wording: "Deliveries logged" → "Bills logged" (admin), "challan" → "bill" (Add bill).
+- Verified in the preview at phone size with temporary test bills, then deleted them (rows, alerts,
+  photos): supervisor add-bill flow end to end, including validation; accountant flag/match
+  returning to the right screen; every tab for all three roles. Lint (no errors) and build pass.
 
 ### 2026-10-03 — "New version ready" banner
 

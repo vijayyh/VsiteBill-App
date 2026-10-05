@@ -57,7 +57,7 @@ export function BillSummary({
 
       {note && <div className="text-[11.5px] text-ink-muted italic mt-2 line-clamp-2">“{note}”</div>}
 
-      <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-border text-[11px] text-ink-faint">
+      <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-white/80 text-[11px] text-ink-faint">
         <span className="truncate">
           {byline ? `${byline} · ` : ''}
           {formatDateTime(timestamp)}

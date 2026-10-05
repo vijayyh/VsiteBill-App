@@ -124,8 +124,8 @@ export async function flushQueue(): Promise<{ uploaded: number; remaining: numbe
   return { uploaded, remaining: (await listQueued()).length }
 }
 
-/** Live list of queued (not-yet-uploaded) photos for one project. */
-export function useQueuedUploads(projectId: string) {
+/** Live list of queued (not-yet-uploaded) photos — for one project, or all when omitted. */
+export function useQueuedUploads(projectId?: string) {
   const [items, setItems] = useState<QueuedUpload[]>([])
 
   const refresh = useCallback(() => {

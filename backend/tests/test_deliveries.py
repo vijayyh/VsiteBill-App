@@ -138,6 +138,26 @@ def test_supervisor_all_bills_view_includes_older_bills(client, app, login):
     assert len(today["deliveries"]) == 1
 
 
+def test_cross_project_list_scopes_supervisors_to_their_own_bills(client, login):
+    supervisor, admin, accountant = login("supervisor"), login("admin"), login("accountant")
+    upload_bill(client, supervisor, project_id="kh-014")
+    flagged_id = upload_bill(client, supervisor, project_id="kh-021").get_json()["delivery"]["id"]
+    upload_bill(client, admin, project_id="kh-014")
+    client.patch(f"/api/deliveries/{flagged_id}", json={"status": "REVIEW"}, headers=accountant)
+
+    mine = client.get("/api/deliveries", headers=supervisor).get_json()["deliveries"]
+    assert len(mine) == 2
+    assert {b["project"]["code"] for b in mine} == {"KH-PRJ-014", "KH-PRJ-021"}
+    assert all(b["uploadedBy"] == "Ramesh Patil" for b in mine)
+
+    everyone = client.get("/api/deliveries", headers=accountant).get_json()["deliveries"]
+    assert len(everyone) == 3
+    queue = client.get("/api/deliveries?status=PENDING,REVIEW", headers=accountant).get_json()["deliveries"]
+    assert len(queue) == 3
+    flagged = client.get("/api/deliveries?status=REVIEW", headers=accountant).get_json()["deliveries"]
+    assert [b["id"] for b in flagged] == [flagged_id]
+
+
 def test_save_to_drive_without_a_connected_account_says_so(client, login):
     bill_id = upload_bill(client, login("supervisor")).get_json()["delivery"]["id"]
     res = client.post(f"/api/deliveries/{bill_id}/save-to-drive", headers=login("accountant"))

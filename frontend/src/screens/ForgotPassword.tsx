@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { IconCheck } from '../components/icons'
+import { Card, Field, btnPrimary } from '../components/ui'
+import { IconBack, IconCheck, IconLock } from '../components/icons'
 import { api } from '../lib/api'
 
 export function ForgotPassword() {
@@ -22,18 +23,17 @@ export function ForgotPassword() {
 
   if (submitted) {
     return (
-      <div className="flex-grow flex flex-col items-center justify-center px-8 text-center text-ink">
-        <div className="w-[84px] h-[84px] rounded-full bg-success-bg flex items-center justify-center mb-6">
-          <IconCheck size={38} stroke="var(--color-success-text)" strokeWidth={2.5} />
+      <div className="flex-grow flex flex-col px-6 pt-10 pb-8 text-ink">
+        <div className="flex-grow flex flex-col items-center justify-center text-center">
+          <div className="w-[104px] h-[104px] rounded-full bg-success-bg ring-[10px] ring-success-bg/50 shadow-soft flex items-center justify-center mb-6">
+            <IconCheck size={48} stroke="var(--color-success-text)" strokeWidth={2.6} />
+          </div>
+          <div className="text-[24px] font-bold leading-tight">Request sent</div>
+          <div className="text-[13.5px] text-ink-muted leading-relaxed mt-2 max-w-[300px]">
+            If that phone number has an account, an admin will reach out to set a new password for you.
+          </div>
         </div>
-        <div className="text-xl font-bold mb-2">Request sent</div>
-        <div className="text-[13.5px] text-ink-muted leading-relaxed mb-8">
-          If that phone number has an account, an admin will reach out to set a new password for you.
-        </div>
-        <Link
-          to="/login"
-          className="w-full text-center py-4 rounded-btn bg-accent text-white text-[15px] font-bold"
-        >
+        <Link to="/login" className={`${btnPrimary} w-full py-4 text-[15px]`}>
           Back to log in
         </Link>
       </div>
@@ -41,52 +41,51 @@ export function ForgotPassword() {
   }
 
   return (
-    <div className="flex-grow flex flex-col justify-center px-7 py-8 text-ink">
-      <div className="mb-8">
-        <div className="text-xl font-bold mb-2">Forgot your password?</div>
-        <div className="text-[13.5px] text-ink-muted leading-relaxed">
-          Accounts here are set up by an admin, not self-service — enter your phone number and an admin
-          will set you a new password.
+    <div className="flex-grow flex flex-col px-6 pt-6 pb-8 text-ink">
+      <Link
+        to="/login"
+        aria-label="Back to log in"
+        className="w-11 h-11 rounded-full glass-strong flex items-center justify-center"
+      >
+        <IconBack size={20} />
+      </Link>
+
+      <div className="flex-grow flex flex-col justify-center py-8">
+        <span className="w-14 h-14 rounded-full bg-gradient-to-br from-[#2f5f8a] to-accent flex items-center justify-center shadow-soft ring-4 ring-white/70">
+          <IconLock size={24} stroke="#FFFFFF" />
+        </span>
+        <div className="text-[28px] font-bold leading-tight mt-5">Forgot your password?</div>
+        <div className="text-[14px] text-ink-muted leading-relaxed mt-1.5 mb-7">
+          Accounts here are set up by an admin. Enter your phone number and an admin will set you a new
+          password.
         </div>
+
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <Field id="phone" label="Phone number" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <div>
+            <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 block" htmlFor="note">
+              Note (optional)
+            </label>
+            <textarea
+              id="note"
+              rows={2}
+              placeholder="Anything the admin should know"
+              className="w-full rounded-[16px] glass-strong px-4 py-3 text-[14px] text-ink placeholder:text-ink-faint resize-none outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+
+          <button type="submit" disabled={busy} className={`${btnPrimary} w-full py-4 text-[15px] mt-1`}>
+            {busy ? 'Sending…' : 'Send request'}
+          </button>
+        </form>
+
+        <Card className="mt-5 px-4 py-3 text-[12px] text-ink-muted leading-relaxed">
+          No SMS or email is sent. Once an admin sets a temporary password, log in with it and change it
+          from your Profile.
+        </Card>
       </div>
-
-      <form onSubmit={submit} className="flex flex-col gap-4">
-        <div>
-          <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="phone">
-            Phone number
-          </label>
-          <input
-            id="phone"
-            className="w-full rounded-btn border border-border-strong px-3.5 py-3 text-[14.5px] text-ink bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="note">
-            Note (optional)
-          </label>
-          <textarea
-            id="note"
-            rows={2}
-            placeholder="Anything the admin should know"
-            className="w-full rounded-btn border border-border-strong px-3.5 py-3 text-[13.5px] text-ink bg-surface resize-none focus:outline-2 focus:outline-accent focus:outline-offset-1"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full text-center py-4 rounded-btn bg-accent text-white text-[15px] font-bold mt-1.5 disabled:opacity-60"
-        >
-          {busy ? 'Sending…' : 'Send request'}
-        </button>
-        <Link to="/login" className="text-center text-sm font-semibold text-ink-muted py-2">
-          Back to log in
-        </Link>
-      </form>
     </div>
   )
 }

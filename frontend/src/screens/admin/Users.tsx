@@ -48,7 +48,7 @@ export function AdminUsers() {
   return (
     <AdminShell title="Users">
       {created && (
-        <div className="bg-success-bg border border-success-border rounded-card p-3.5 mb-4">
+        <div className="bg-success-bg/90 ring-1 ring-success-border rounded-card p-3.5 mb-4">
           <div className="text-[13px] font-bold text-success-text">{created.name} was created</div>
           <div className="text-xs text-success-text mt-1">
             Phone: {created.phone}
@@ -64,14 +64,14 @@ export function AdminUsers() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full text-center py-3 rounded-btn border border-border-strong text-ink text-sm font-semibold mb-4"
+          className="w-full py-3 rounded-full glass text-ink text-sm font-semibold mb-4"
         >
           + Add user
         </button>
       )}
 
       {showForm && (
-        <form onSubmit={submit} className="bg-surface border border-border rounded-card p-3.5 mb-4 flex flex-col gap-3">
+        <form onSubmit={submit} className="glass rounded-card p-4 mb-4 flex flex-col gap-3">
           <div>
             <label className="text-[11.5px] font-semibold text-label mb-1 block" htmlFor="new-name">
               Name
@@ -79,7 +79,7 @@ export function AdminUsers() {
             <input
               id="new-name"
               required
-              className="w-full rounded-field border border-border-strong px-3 py-2.5 text-[13.5px] bg-surface"
+              className="w-full rounded-[14px] glass-strong px-3.5 py-2.5 text-[13.5px] outline-none focus:ring-2 focus:ring-accent/40"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -91,7 +91,7 @@ export function AdminUsers() {
             <input
               id="new-phone"
               required
-              className="w-full rounded-field border border-border-strong px-3 py-2.5 text-[13.5px] bg-surface"
+              className="w-full rounded-[14px] glass-strong px-3.5 py-2.5 text-[13.5px] outline-none focus:ring-2 focus:ring-accent/40"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
@@ -102,7 +102,7 @@ export function AdminUsers() {
             </label>
             <select
               id="new-role"
-              className="w-full rounded-field border border-border-strong px-3 py-2.5 text-[13.5px] bg-surface"
+              className="w-full rounded-[14px] glass-strong px-3.5 py-2.5 text-[13.5px] outline-none focus:ring-2 focus:ring-accent/40"
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
             >
@@ -118,14 +118,14 @@ export function AdminUsers() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="flex-grow py-2.5 rounded-btn border border-border-strong text-ink text-[13px] font-semibold"
+              className="flex-grow py-2.5 rounded-full glass text-ink text-[13px] font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="flex-grow py-2.5 rounded-btn bg-accent text-white text-[13px] font-bold disabled:opacity-60"
+              className="flex-grow py-2.5 rounded-full bg-accent text-white text-[13px] font-bold shadow-soft disabled:opacity-60"
             >
               {busy ? 'Creating…' : 'Create'}
             </button>
@@ -135,8 +135,8 @@ export function AdminUsers() {
 
       <div className="flex flex-col gap-2.5">
         {users.map((u) => (
-          <div key={u.id} className="flex items-center gap-3 bg-surface border border-border rounded-card p-3">
-            <div className="w-10 h-10 rounded-full bg-avatar-bg flex items-center justify-center text-[12px] font-bold text-accent flex-shrink-0">
+          <div key={u.id} className="flex items-center gap-3 glass rounded-card p-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#2f5f8a] to-accent ring-2 ring-white/80 flex items-center justify-center text-[12px] font-bold text-white flex-shrink-0">
               {u.initials}
             </div>
             <div className="flex-grow min-w-0">
@@ -149,7 +149,7 @@ export function AdminUsers() {
                 </div>
               )}
             </div>
-            <div className="text-[10.5px] font-bold rounded-md px-2 py-1 bg-surface-alt text-ink-muted whitespace-nowrap">
+            <div className="text-[10.5px] font-bold rounded-full px-2.5 py-1 bg-white/75 ring-1 ring-white text-ink-muted whitespace-nowrap">
               {roleLabel[u.role]}
             </div>
           </div>

@@ -1,71 +1,81 @@
 import { useState } from 'react'
 import { AdminShell } from '../../components/AdminShell'
 import { AuthImage } from '../../components/AuthImage'
-import { IconCheck, IconCloud } from '../../components/icons'
+import { BillSummary } from '../../components/BillSummary'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { StatusBadge } from '../../components/StatusBadge'
+import { EmptyState, FilterTabs, SearchField, type TabOption } from '../../components/ui'
+import { IconBill } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
-import { formatDateTime } from '../../lib/format'
-import type { AdminDelivery } from '../../lib/types'
+import { STATUS_META } from '../../lib/status'
+import type { AdminDelivery, DeliveryStatus } from '../../lib/types'
+
+type Filter = 'ALL' | DeliveryStatus
 
 export function AdminDeliveries() {
-  const { data } = useApiGet<{ deliveries: AdminDelivery[] }>('/api/admin/deliveries')
+  const { data, loading } = useApiGet<{ deliveries: AdminDelivery[] }>('/api/admin/deliveries')
   const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [filter, setFilter] = useState<Filter>('ALL')
+  const [query, setQuery] = useState('')
 
-  const deliveries = data?.deliveries ?? []
+  const bills = data?.deliveries ?? []
+  const q = query.trim().toLowerCase()
+  const visible = bills.filter(
+    (b) =>
+      (filter === 'ALL' || b.status === filter) &&
+      (!q ||
+        [b.vendor, b.item, b.poNumber ?? '', b.project.code, b.project.name, b.uploadedBy ?? ''].some((s) =>
+          s.toLowerCase().includes(q),
+        )),
+  )
+  const tabs: TabOption<Filter>[] = [
+    { key: 'ALL', label: 'All', count: bills.length },
+    ...(['PENDING', 'REVIEW', 'MATCHED'] as const).map((s) => ({
+      key: s,
+      label: STATUS_META[s].label,
+      count: bills.filter((b) => b.status === s).length,
+      dot: STATUS_META[s].dot,
+    })),
+  ]
 
   return (
-    <AdminShell title="Deliveries">
-      {deliveries.length === 0 && (
-        <div className="text-sm text-ink-muted text-center mt-6">No deliveries uploaded yet.</div>
-      )}
+    <AdminShell title="Bills" subtitle="Every bill, across all projects">
+      <SearchField value={query} onChange={setQuery} placeholder="Search vendor, PO, project or supervisor" />
+      <div className="-mx-5 mt-3">
+        <FilterTabs tabs={tabs} value={filter} onChange={setFilter} />
+      </div>
 
-      <div className="flex flex-col gap-2.5">
-        {deliveries.map((entry) => {
-          return (
-            <div key={entry.id} className="bg-surface border border-border rounded-card p-3">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => entry.photoUrl && setViewerSrc(entry.photoUrl)}
-                  className="w-11 h-11 rounded-lg bg-camera-bg flex-shrink-0 overflow-hidden"
-                >
-                  {entry.photoUrl && <AuthImage src={entry.photoUrl} className="w-full h-full object-cover" />}
-                </button>
-                <div className="flex-grow min-w-0">
-                  <div className="text-[13px] font-bold truncate">{entry.vendor || 'Vendor not entered'}</div>
-                  <div className="text-[11px] text-ink-muted mt-px truncate">
-                    {entry.project.code} &middot; {entry.item || 'No item description'}
-                  </div>
-                  <div className="text-[10.5px] text-ink-faint mt-[3px]">
-                    {formatDateTime(entry.uploadedAt)}
-                    {entry.uploadedBy ? ` · ${entry.uploadedBy}` : ''}
-                  </div>
-                </div>
-                <StatusBadge status={entry.status} />
-              </div>
-
-              <div className="mt-2 pt-2 border-t border-border">
-                {entry.driveFileId ? (
-                  <a
-                    href={entry.driveWebViewLink ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1.5 text-[11px] font-semibold text-success-text"
-                  >
-                    <IconCheck size={12} stroke="var(--color-success-text)" strokeWidth={2.5} />
-                    Saved to Drive
-                  </a>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-faint">
-                    <IconCloud size={12} stroke="var(--color-ink-faint)" />
-                    Not saved to Drive yet
-                  </div>
-                )}
-              </div>
+      <div className="flex flex-col gap-2.5 mt-3">
+        {loading && <div className="text-sm text-ink-muted text-center mt-4">Loading bills…</div>}
+        {!loading && visible.length === 0 && (
+          <EmptyState icon={IconBill} title={q ? 'No bills match your search' : 'No bills here yet'} />
+        )}
+        {visible.map((bill) => (
+          <div key={bill.id} className="glass rounded-card flex gap-3 p-3">
+            <button
+              type="button"
+              onClick={() => bill.photoUrl && setViewerSrc(bill.photoUrl)}
+              aria-label="View bill photo"
+              className="w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70"
+            >
+              {bill.photoUrl && <AuthImage src={bill.photoUrl} className="w-full h-full object-cover" />}
+            </button>
+            <div className="flex-grow min-w-0">
+              <BillSummary
+                vendor={bill.vendor}
+                item={`${bill.project.code} · ${bill.item || 'No item description'}`}
+                badge={<StatusBadge status={bill.status} />}
+                delivered={bill.delivered}
+                ordered={bill.ordered}
+                poNumber={bill.poNumber}
+                note={bill.note}
+                byline={bill.uploadedBy}
+                timestamp={bill.uploadedAt}
+                inDrive={!!bill.driveFileId}
+              />
             </div>
-          )
-        })}
+          </div>
+        ))}
       </div>
 
       <PhotoViewer src={viewerSrc} onClose={() => setViewerSrc(null)} />

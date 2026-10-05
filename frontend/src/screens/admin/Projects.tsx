@@ -50,14 +50,14 @@ export function AdminProjects() {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full text-center py-3 rounded-btn border border-border-strong text-ink text-sm font-semibold mb-4"
+          className="w-full py-3 rounded-full glass text-ink text-sm font-semibold mb-4"
         >
           + Add project
         </button>
       )}
 
       {showForm && (
-        <form onSubmit={submit} className="bg-surface border border-border rounded-card p-3.5 mb-4 flex flex-col gap-3">
+        <form onSubmit={submit} className="glass rounded-card p-4 mb-4 flex flex-col gap-3">
           <div>
             <label className="text-[11.5px] font-semibold text-label mb-1 block" htmlFor="new-code">
               Project code
@@ -66,7 +66,7 @@ export function AdminProjects() {
               id="new-code"
               required
               placeholder="e.g. KH-PRJ-030"
-              className="w-full rounded-field border border-border-strong px-3 py-2.5 text-[13.5px] bg-surface"
+              className="w-full rounded-[14px] glass-strong px-3.5 py-2.5 text-[13.5px] outline-none focus:ring-2 focus:ring-accent/40"
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
@@ -79,7 +79,7 @@ export function AdminProjects() {
               id="new-project-name"
               required
               placeholder="e.g. Vasai Bridge Works"
-              className="w-full rounded-field border border-border-strong px-3 py-2.5 text-[13.5px] bg-surface"
+              className="w-full rounded-[14px] glass-strong px-3.5 py-2.5 text-[13.5px] outline-none focus:ring-2 focus:ring-accent/40"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -92,8 +92,8 @@ export function AdminProjects() {
                   key={opt.value}
                   type="button"
                   onClick={() => setAccent(opt.value)}
-                  className={`flex items-center gap-1.5 rounded-btn border px-3 py-2 text-xs font-semibold ${
-                    accent === opt.value ? 'border-accent' : 'border-border-strong'
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold glass ${
+                    accent === opt.value ? 'ring-2 ring-accent' : 'ring-1 ring-white'
                   }`}
                 >
                   <span className={`w-3 h-3 rounded-full ${accentBg[opt.value]}`} />
@@ -109,14 +109,14 @@ export function AdminProjects() {
             <button
               type="button"
               onClick={() => setShowForm(false)}
-              className="flex-grow py-2.5 rounded-btn border border-border-strong text-ink text-[13px] font-semibold"
+              className="flex-grow py-2.5 rounded-full glass text-ink text-[13px] font-semibold"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="flex-grow py-2.5 rounded-btn bg-accent text-white text-[13px] font-bold disabled:opacity-60"
+              className="flex-grow py-2.5 rounded-full bg-accent text-white text-[13px] font-bold shadow-soft disabled:opacity-60"
             >
               {busy ? 'Creating…' : 'Create'}
             </button>
@@ -126,7 +126,7 @@ export function AdminProjects() {
 
       <div className="flex flex-col gap-2.5">
         {projects.map((project) => (
-          <div key={project.id} className="flex items-center gap-3 bg-surface border border-border rounded-card p-3">
+          <div key={project.id} className="flex items-center gap-3 glass rounded-card p-3">
             <div className={`w-10 h-10 rounded-btn flex items-center justify-center flex-shrink-0 ${accentBg[project.accent]}`}>
               <IconTruck size={16} stroke="#FFFFFF" />
             </div>

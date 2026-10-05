@@ -80,7 +80,7 @@ export function AdminDashboard() {
   return (
     <AdminShell title="Overview">
       <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">Google Drive</div>
-      <div className="bg-surface border border-border rounded-card p-3.5 mb-5">
+      <div className="glass rounded-card p-4 mb-5">
         {driveError && <div className="text-[12px] font-semibold text-warning-text mb-2">{driveError}</div>}
 
         {!driveStatus?.configured && (
@@ -104,7 +104,7 @@ export function AdminDashboard() {
                 Save bill photos to
               </label>
               <select
-                className="w-full rounded-field border border-border-strong px-2.5 py-2 text-[12.5px] bg-surface"
+                className="w-full rounded-[14px] glass-strong px-3 py-2.5 text-[12.5px] outline-none"
                 value={driveStatus.account.sharedDriveId ?? ''}
                 disabled={settingDrive}
                 onChange={(e) => chooseSharedDrive(e.target.value)}
@@ -159,7 +159,7 @@ export function AdminDashboard() {
             <button
               onClick={connectDrive}
               disabled={connecting}
-              className="text-[12.5px] font-bold text-white bg-accent rounded-btn px-3.5 py-2 disabled:opacity-60"
+              className="text-[12.5px] font-bold text-white bg-accent rounded-full px-4 py-2 shadow-soft disabled:opacity-60"
             >
               {connecting ? 'Connecting…' : 'Connect Google Drive'}
             </button>
@@ -168,7 +168,7 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 mb-5">
-        <Link to="/admin/users" className="bg-surface border border-border rounded-card p-3.5 text-left">
+        <Link to="/admin/users" className="glass rounded-card p-3.5 text-left">
           <div className="text-xl font-bold">
             {(overview?.userCounts.supervisor ?? 0) + (overview?.userCounts.accountant ?? 0)}
           </div>
@@ -177,17 +177,17 @@ export function AdminDashboard() {
             accountant)
           </div>
         </Link>
-        <Link to="/admin/projects" className="bg-surface border border-border rounded-card p-3.5 text-left">
+        <Link to="/admin/projects" className="glass rounded-card p-3.5 text-left">
           <div className="text-xl font-bold">{overview?.projectCount ?? '–'}</div>
           <div className="text-[11px] text-ink-muted mt-0.5">Projects</div>
         </Link>
-        <Link to="/admin/deliveries" className="bg-surface border border-border rounded-card p-3.5 text-left">
+        <Link to="/admin/deliveries" className="glass rounded-card p-3.5 text-left">
           <div className="text-xl font-bold">{overview?.deliveryCount ?? '–'}</div>
-          <div className="text-[11px] text-ink-muted mt-0.5">Deliveries logged</div>
+          <div className="text-[11px] text-ink-muted mt-0.5">Bills logged</div>
         </Link>
         <button
           onClick={() => document.getElementById('notifications')?.scrollIntoView({ behavior: 'smooth' })}
-          className="bg-warning-bg border border-warning-border rounded-card p-3.5 text-left"
+          className="bg-warning-bg/85 ring-1 ring-warning-border rounded-card p-3.5 text-left shadow-soft"
         >
           <div className="text-xl font-bold text-warning-text">{overview?.pendingPasswordResets ?? 0}</div>
           <div className="text-[11px] text-warning-text mt-0.5">Password resets pending</div>
@@ -204,7 +204,7 @@ export function AdminDashboard() {
 
       <div className="flex flex-col gap-2.5">
         {pending.map((req) => (
-          <div key={req.id} className="bg-surface border border-warning-border rounded-card p-3.5">
+          <div key={req.id} className="glass rounded-card p-4 ring-1 ring-warning-border/70">
             <div className="flex items-start gap-2.5">
               <IconAlertTriangle size={16} stroke="var(--color-warning-text)" strokeWidth={2.5} />
               <div className="flex-grow">
@@ -229,7 +229,7 @@ export function AdminDashboard() {
                   <button
                     onClick={() => resolve(req.id)}
                     disabled={resolving === req.id}
-                    className="mt-2.5 text-[12.5px] font-bold text-white bg-accent rounded-btn px-3.5 py-2 disabled:opacity-60"
+                    className="mt-2.5 text-[12.5px] font-bold text-white bg-accent rounded-full px-4 py-2 shadow-soft disabled:opacity-60"
                   >
                     {resolving === req.id ? 'Setting…' : 'Set new password'}
                   </button>

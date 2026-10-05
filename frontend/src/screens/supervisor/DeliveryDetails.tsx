@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ScreenHeader } from '../../components/ScreenHeader'
+import { Field, btnPrimary } from '../../components/ui'
+import { IconCamera } from '../../components/icons'
 import { api, ApiError } from '../../lib/api'
 import { compressImage } from '../../lib/compressImage'
 import { queueUpload } from '../../lib/offlineQueue'
@@ -74,93 +76,76 @@ export function DeliveryDetails() {
 
   return (
     <div className="flex flex-col flex-grow text-ink">
-      <ScreenHeader backTo={`/supervisor/projects/${projectId}/upload`} title="Bill details" />
+      <ScreenHeader backTo={`/supervisor/projects/${projectId}/upload`} title="Bill details" subtitle="Step 2 of 2 · copy from the bill" />
 
-      <div className="flex-grow overflow-y-auto px-4 py-3.5 flex flex-col gap-3.5">
-        <div className="w-full aspect-[4/3] rounded-card bg-camera-bg overflow-hidden">
-          {previewUrl && <img src={previewUrl} alt="Captured challan" className="w-full h-full object-cover" />}
+      <div className="flex-grow px-5 pt-2 pb-4 flex flex-col gap-4">
+        <div className="glass rounded-card p-1.5">
+          <div className="relative w-full aspect-[4/3] rounded-[14px] bg-camera-bg overflow-hidden">
+            {previewUrl && <img src={previewUrl} alt="The bill you photographed" className="w-full h-full object-cover" />}
+            <Link
+              to={`/supervisor/projects/${projectId}/upload`}
+              className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/45 ring-1 ring-white/30 backdrop-blur text-white text-[12px] font-bold px-3 py-1.5"
+            >
+              <IconCamera size={14} stroke="#FFFFFF" />
+              Retake
+            </Link>
+          </div>
         </div>
 
-        <div className="text-[12.5px] text-ink-muted leading-relaxed">
+        <div className="text-[12.5px] text-ink-muted leading-relaxed px-1">
           Copy these from the bill. The office team will check them against the purchase order.
         </div>
 
-        {error && <div className="text-[12.5px] font-semibold text-warning-text">{error}</div>}
-        {showErrors && missingFields.length > 0 && (
-          <div className="text-[12.5px] font-semibold text-warning-text">
-            Fill in {missingFields.join(', ')} before submitting.
-          </div>
-        )}
-
-        <div className="flex flex-col gap-3">
-          <div>
-            <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="vendor">
-              Vendor
-            </label>
-            <input
-              id="vendor"
-              placeholder="e.g. UltraTech Cement Ltd"
-              className={`w-full rounded-btn border px-3.5 py-3 text-[14.5px] text-ink bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                showErrors && !vendor.trim() ? 'border-warning-text' : 'border-border-strong'
-              }`}
-              value={vendor}
-              onChange={(e) => setVendor(e.target.value)}
+        <div className="flex flex-col gap-3.5">
+          <Field
+            id="vendor"
+            label="Vendor"
+            placeholder="e.g. UltraTech Cement Ltd"
+            invalid={showErrors && !vendor.trim()}
+            value={vendor}
+            onChange={(e) => setVendor(e.target.value)}
+          />
+          <Field
+            id="item"
+            label="Item description"
+            placeholder="e.g. OPC 53 Grade Cement, 50kg bags"
+            invalid={showErrors && !item.trim()}
+            value={item}
+            onChange={(e) => setItem(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              id="qty"
+              label="Quantity delivered"
+              inputMode="decimal"
+              placeholder="e.g. 480"
+              invalid={showErrors && !quantity.trim()}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
             />
-          </div>
-          <div>
-            <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="item">
-              Item description
-            </label>
-            <input
-              id="item"
-              placeholder="e.g. OPC 53 Grade Cement, 50kg bags"
-              className={`w-full rounded-btn border px-3.5 py-3 text-[14.5px] text-ink bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                showErrors && !item.trim() ? 'border-warning-text' : 'border-border-strong'
-              }`}
-              value={item}
-              onChange={(e) => setItem(e.target.value)}
+            <Field
+              id="po"
+              label="PO number"
+              placeholder="If known"
+              value={poNumber}
+              onChange={(e) => setPoNumber(e.target.value)}
             />
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="qty">
-                Quantity delivered
-              </label>
-              <input
-                id="qty"
-                inputMode="decimal"
-                placeholder="e.g. 480"
-                className={`w-full rounded-btn border px-3.5 py-3 text-[14.5px] text-ink bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1 ${
-                  showErrors && !quantity.trim() ? 'border-warning-text' : 'border-border-strong'
-                }`}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-[12.5px] font-semibold text-label mb-1.5 block" htmlFor="po">
-                PO number (if known)
-              </label>
-              <input
-                id="po"
-                placeholder="Optional"
-                className="w-full rounded-btn border border-border-strong px-3.5 py-3 text-[14.5px] text-ink bg-surface focus:outline-2 focus:outline-accent focus:outline-offset-1"
-                value={poNumber}
-                onChange={(e) => setPoNumber(e.target.value)}
-              />
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-shrink-0 px-5 pt-3.5 pb-[30px]">
-        <button
-          onClick={handleSubmit}
-          disabled={uploading}
-          className="w-full text-center py-4 rounded-btn bg-accent text-white text-[15px] font-bold disabled:opacity-60"
-        >
-          {uploading ? 'Sending…' : 'Send to office'}
-        </button>
+      <div className="sticky bottom-0 z-10 px-3 pb-3 pt-2">
+        <div className="glass-strong rounded-[24px] p-2.5 flex flex-col gap-2">
+          {error && <div className="text-[12.5px] font-semibold text-warning-text text-center pt-1">{error}</div>}
+          {showErrors && missingFields.length > 0 && (
+            <div className="text-[12.5px] font-semibold text-warning-text text-center pt-1">
+              Fill in {missingFields.join(', ')} before sending.
+            </div>
+          )}
+          <button onClick={handleSubmit} disabled={uploading} className={`${btnPrimary} w-full py-4 text-[15px]`}>
+            {uploading ? 'Sending…' : 'Send to office'}
+          </button>
+        </div>
       </div>
     </div>
   )

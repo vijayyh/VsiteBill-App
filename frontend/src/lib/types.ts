@@ -78,6 +78,18 @@ export interface DriveStatus {
   } | null
 }
 
+export type NotificationKind = 'bill_new' | 'bill_flagged' | 'bill_matched' | 'password_reset'
+
+export interface AppNotification {
+  id: number
+  kind: NotificationKind
+  title: string
+  body: string | null
+  link: string | null
+  createdAt: string
+  read: boolean
+}
+
 /** GET /api/office/drive — read-only Drive links for accountants and admins. */
 export interface OfficeDrive {
   connected: boolean

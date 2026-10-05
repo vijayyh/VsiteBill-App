@@ -1,73 +1,76 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { IconChevronRight, IconTruck } from '../../components/icons'
-import { useSession } from '../../lib/session'
+import { AppHeader } from '../../components/AppHeader'
+import { BillRow } from '../../components/BillRow'
+import { TabScreen } from '../../components/BottomNav'
+import { ProjectCard } from '../../components/ProjectCard'
+import { EmptyState, SectionTitle, StatTile } from '../../components/ui'
+import { IconAlertTriangle, IconBill, IconCheck, IconClock } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
-import { greeting } from '../../lib/format'
-import type { Project, ProjectAccent } from '../../lib/types'
-
-const accentBg: Record<ProjectAccent, string> = {
-  accent: 'bg-accent',
-  forest: 'bg-forest',
-  clay: 'bg-clay',
-}
+import { useQueuedUploads } from '../../lib/offlineQueue'
+import type { AdminDelivery, Project } from '../../lib/types'
 
 export function SupervisorDashboard() {
-  const { user, logout } = useSession()
-  const navigate = useNavigate()
-  const { data, loading, error } = useApiGet<{ projects: Project[] }>('/api/projects')
+  const { data: projectsData, loading, error } = useApiGet<{ projects: Project[] }>('/api/projects')
+  const { data: billsData } = useApiGet<{ deliveries: AdminDelivery[] }>('/api/deliveries')
+  const queued = useQueuedUploads()
+
+  const bills = billsData?.deliveries ?? []
+  const today = new Date().toDateString()
+  const sentToday = bills.filter((b) => new Date(b.uploadedAt).toDateString() === today).length
+  const flagged = bills.filter((b) => b.status === 'REVIEW').length
+  const countFor = (projectId: string) => bills.filter((b) => b.projectId === projectId).length
 
   return (
-    <div className="flex flex-col flex-grow text-ink">
-      <div className="flex-shrink-0 px-5 pt-5 pb-4 bg-surface border-b border-border">
-        <div className="text-xs text-ink-muted font-medium">{greeting()}</div>
-        <div className="flex items-center justify-between mt-0.5">
-          <div>
-            <div className="text-xl font-bold">{user?.name}</div>
-            <div className="text-[11.5px] text-ink-muted mt-px">Site supervisor</div>
-          </div>
-          <button
-            onClick={() => {
-              logout()
-              navigate('/login')
-            }}
-            aria-label="Log out"
-            title="Log out"
-            className="w-[38px] h-[38px] rounded-full bg-avatar-bg flex items-center justify-center text-[13px] font-bold text-accent"
-          >
-            {user?.initials}
-          </button>
-        </div>
+    <TabScreen>
+      <AppHeader />
+
+      <div className="px-5 grid grid-cols-3 gap-2.5">
+        <StatTile value={sentToday} label="Sent today" icon={IconCheck} tint="bg-success-bg text-success-text" />
+        <StatTile value={queued.length} label="Waiting for signal" icon={IconClock} tint="bg-warning-bg text-warning-text" />
+        <StatTile value={flagged} label="Flagged by office" icon={IconAlertTriangle} tint="bg-info-bg text-info-text" />
       </div>
 
-      <div className="flex-grow overflow-y-auto px-4 py-[18px]">
-        <div className="text-xs font-bold text-ink-muted uppercase tracking-wide mb-2.5">
-          Choose a project to add a bill
-        </div>
-
+      <div className="px-5 mt-6">
+        <SectionTitle title="Your projects" />
         {loading && <div className="text-sm text-ink-muted">Loading projects…</div>}
         {error && <div className="text-sm text-warning-text">{error}</div>}
-
-        <div className="flex flex-col gap-2.5">
-          {data?.projects.map((project) => (
-            <Link
-              key={project.id}
-              to={`/supervisor/projects/${project.id}`}
-              className="flex items-center gap-3 bg-surface border border-border rounded-card p-[15px] shadow-[0_1px_2px_rgba(20,24,26,0.04)]"
-            >
-              <div
-                className={`w-[46px] h-[46px] rounded-btn flex items-center justify-center flex-shrink-0 ${accentBg[project.accent]}`}
-              >
-                <IconTruck size={20} stroke="#FFFFFF" />
-              </div>
-              <div className="flex-grow">
-                <div className="text-[14.5px] font-bold">{project.code}</div>
-                <div className="text-[12.5px] text-ink-muted mt-px">{project.name}</div>
-              </div>
-              <IconChevronRight size={18} stroke="var(--color-ink-faint)" />
-            </Link>
-          ))}
-        </div>
       </div>
-    </div>
+      <div className="flex gap-3 overflow-x-auto px-5 scroll-px-5 pb-2 snap-x snap-mandatory [scrollbar-width:none]">
+        {projectsData?.projects.map((project) => (
+          <ProjectCard
+            key={project.id}
+            to={`/supervisor/projects/${project.id}`}
+            code={project.code}
+            name={project.name}
+            accent={project.accent}
+            className="w-[78%] flex-shrink-0 snap-start"
+            footer={
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-ink-muted">
+                  <b className="text-ink">{countFor(project.id)}</b> bills from you
+                </span>
+                <span className="font-bold text-accent">Open →</span>
+              </div>
+            }
+          />
+        ))}
+      </div>
+
+      <div className="px-5 mt-5">
+        <SectionTitle title="Recent bills" to="/supervisor/bills" />
+        {bills.length === 0 ? (
+          <EmptyState
+            icon={IconBill}
+            title="No bills yet"
+            body="Bills you send will appear here. Tap the camera button to add your first one."
+          />
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {bills.slice(0, 4).map((bill) => (
+              <BillRow key={bill.id} bill={bill} to={`/supervisor/projects/${bill.projectId}`} />
+            ))}
+          </div>
+        )}
+      </div>
+    </TabScreen>
   )
 }

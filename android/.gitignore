@@ -1,0 +1,11 @@
+# Build output and signed packages are delivered separately, never committed
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+*.aab
+*.idsig
+# Signing keys must never be in this public repo
+*.jks
+*.keystore

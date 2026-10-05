@@ -19,6 +19,10 @@ is half-done, and there are no open branches with unmerged work (`ui-redesign` i
   review or edit bills or see other supervisors' bills; admin password reset shows the new
   password; admin can reset any user's password and edit projects; the API root shows a status
   page. 87 backend tests.
+- **Android app v1.0.0 built** (APK + Play bundle, `android/`, see README → Mobile apps). It opens
+  the live site full-screen, so web deploys reach it automatically. Tested on an emulator. Not yet
+  installed on real phones or published. **iPhone:** Safari → Add to Home Screen (not yet checked
+  on a real iPhone).
 
 **Next step:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
@@ -82,6 +86,32 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-05 — Android app (APK) and iPhone home-screen support (home)
+
+- Approach: a Trusted Web Activity (Google's Bubblewrap), not a rewrite. The APK opens
+  `vsitebill-app.onrender.com` full-screen in Chrome, so logic, UI and backend are exactly the web
+  app's, and every deploy reaches the app with no reinstall. Capacitor was rejected because it
+  would need a new APK per UI change and breaks Google sign-in for the Drive connect.
+- Website changes (`87a76f8`): `.well-known/assetlinks.json` (verified by Google's Digital Asset
+  Links API); manifest `start_url` `/login` → `/` (installed users were shown the login screen
+  every launch); iPhone: opaque `default` status bar (white text on the light app was unreadable),
+  `viewport-fit=cover`, and bottom padding for the home indicator via `--safe-bottom`.
+- `android/`: `twa-manifest.json` + generated Gradle project. App id `in.sustaniq.siteverify`,
+  v1.0.0 (code 1), portrait, starts at `/`. Signing key kept outside the repo in
+  `C:\Users\vijay\SiteVerify-android-signing\` (password in `PASSWORD.txt` there). APK/AAB and keys
+  are git-ignored.
+- This machine now has Android cmdline-tools (also copied to `<sdk>/tools` for Bubblewrap),
+  build-tools 36.1.0, and an emulator `SiteVerify_Pixel` (Android 15, Google Play image).
+- Verified on the emulator against the live site, creating no data: full-screen with no address
+  bar, navy status bar; login (took ~60 s because the free Render API was asleep); Add bill sheet;
+  "Take a photo" opens the phone's own camera app and the photo comes back into the bill form;
+  the empty-form check blocks sending; Android back steps back through screens; relaunch goes
+  straight to the logged-in home; the offline cache controls the app from the second launch.
+- Not checked: a real iPhone (no Mac or iPhone here), and opening the Android app in airplane
+  mode (the offline cache is in place; the website build was checked offline earlier).
+- First-launch notes for real phones: Android asks once to allow Chrome to use the camera; a
+  phone that has never opened Chrome shows Chrome's welcome screen once.
 
 ### 2026-10-05 — Full test pass, redesign merged, permission and admin fixes (home)
 

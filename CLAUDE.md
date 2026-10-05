@@ -77,7 +77,14 @@ locally before pushing. A red CI run means the live site did **not** update.
   dev server. `UpdateBanner` relies on the existing `autoUpdate` behaviour (skipWaiting +
   clientsClaim); changing `registerType` would break it.
 - **Render free plan sleeps after 15 min idle.** A slow first request after a quiet spell is that,
-  not a bug. Measure before assuming otherwise.
+  not a bug. Measure before assuming otherwise. The opening splash pings `/api/health` to start
+  the wake-up early (`src/lib/splash.ts`).
+- **Opening splash and icons.** The splash is plain HTML/CSS in `frontend/index.html` (so it paints
+  before the app loads), played by `src/lib/splash.ts`, once per session. Its first frame must
+  stay identical to the Android native splash (`pwa-512.png` drawn at 300 px on navy `#1A3C5E`).
+  So if the logo changes, update `frontend/brand/*.svg` **and** the inline SVG in `index.html`,
+  run `npm run icons`, push, then rebuild the APK (`bubblewrap update` fetches the icons from the
+  live site). It can't block offline use: it never waits more than 5 s, and skips the wait offline.
 - **Timestamps** are stored as naive UTC; always serialize with `iso_utc()` from `models.py` or
   the browser shows them 5h30m off.
 - The `.claude/launch.json` backend path is the Windows venv (`backend/.venv/Scripts/python.exe`).

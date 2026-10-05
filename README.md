@@ -161,6 +161,18 @@ local data, the Supabase bucket or Google Drive. The suite covers login and toke
 permissions on every admin route, the bill flow (upload → photo access → flag → match → counts),
 admin user/password/project management, and a check that the migrations match `models.py`.
 
+## App icon and opening splash
+
+- **Logo master files:** `frontend/brand/icon.svg` (rounded tile) and `icon-maskable.svg`
+  (full-bleed, for Android's launcher and the iPhone home screen). After editing either, run
+  `npm run icons` in `frontend/` to regenerate every icon size, the favicon and the iPhone launch
+  images in `frontend/public/`.
+- **Opening splash:** plain HTML/CSS in `frontend/index.html`, played by
+  `frontend/src/lib/splash.ts` once per session. It starts waking the server immediately and waits
+  up to 5 s for it. The inline logo there must match `brand/icon.svg` (see `CLAUDE.md`).
+- The Android app's icon and native splash come from the live site's icons, so a logo change also
+  needs a new APK (see [`android/README.md`](android/README.md)).
+
 ## Changing the database schema
 
 1. Edit the models in `backend/siteverify/models.py`.

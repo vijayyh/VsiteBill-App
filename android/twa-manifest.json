@@ -15,7 +15,7 @@
   "startUrl": "/",
   "iconUrl": "https://vsitebill-app.onrender.com/pwa-512.png",
   "maskableIconUrl": "https://vsitebill-app.onrender.com/pwa-maskable-512.png",
-  "splashScreenFadeOutDuration": 300,
+  "splashScreenFadeOutDuration": 500,
   "signingKey": {
     "path": "C:/Users/vijay/SiteVerify-android-signing/siteverify-release.jks",
     "alias": "siteverify"

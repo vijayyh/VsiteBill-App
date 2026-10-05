@@ -5,7 +5,19 @@ a small Android app that opens the live site (`https://vsitebill-app.onrender.co
 Chrome. It contains no copy of the web app's code, so the app always matches the website exactly,
 and **every push to `main` reaches the Android app too**, with no reinstall.
 
-A new APK is only needed when `twa-manifest.json` changes (name, icon, colours, version).
+A new APK is only needed when `twa-manifest.json` changes (name, colours, version) or the app icon
+changes. The launcher icon and the native splash image are copied into the APK from the live
+site's `pwa-maskable-512.png` and `pwa-512.png` when `bubblewrap update` runs, so push new icons
+first, then regenerate and build. Always raise `appVersionCode` so phones accept the update.
+
+**Opening sequence:** Android shows the native splash (`pwa-512.png` at 300 dp on navy
+`backgroundColor`), then the web page takes over. The web splash's first frame is identical (see
+`frontend/index.html`), so the handover is seamless, then it animates.
+
+| Version | Code | Changes |
+|---|---|---|
+| 1.0.0 | 1 | First build |
+| 1.0.1 | 2 | New icon (minimal document + check), navy native splash |
 
 ## What's in this folder
 

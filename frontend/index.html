@@ -26,8 +26,8 @@
     <!--
       Opening splash. Plain HTML/CSS so its first frame paints before any app code loads. That frame
       is identical to the Android app's native splash (pwa-512.png at 300px on navy), so the native
-      splash hands over to it without a jump. src/lib/splash.ts plays the rest: adds .sv-play, then
-      .sv-wait / .sv-offline, then .sv-exit, and removes it.
+      splash hands over to it seamlessly. The inline script below starts it (.sv-play, .sv-offline);
+      src/lib/splash.ts adds .sv-wait while the server wakes, then .sv-exit, and removes it.
     -->
     <style>
       #sv-splash {
@@ -187,13 +187,28 @@
       <div class="sv-footer">KH Group · Sustaniq</div>
     </div>
     <script>
-      // Only on the first open per session: a reload or the update banner skips straight to the app.
-      // If the app code never loads, don't leave the splash covering the screen.
+      // Starts the splash straight from the HTML, so the animation never waits for the app's code
+      // to download; src/lib/splash.ts later decides when to hand over. Only on the first open per
+      // session: a reload or the update banner goes straight to the app.
       ;(function () {
         var splash = document.getElementById('sv-splash')
         try {
           if (sessionStorage.getItem('sv-splash-seen')) return splash.remove()
+          sessionStorage.setItem('sv-splash-seen', '1')
         } catch (e) {}
+        // Installed apps: hold the first frame a moment while the native splash fades out.
+        var installed =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          navigator.standalone === true ||
+          document.referrer.indexOf('android-app://') === 0
+        splash.style.setProperty('--sv-delay', installed ? '380ms' : '0ms')
+        if (!navigator.onLine) {
+          splash.classList.add('sv-offline')
+          splash.querySelector('.sv-status-text').textContent = 'No signal — you can still add bills'
+        }
+        splash.classList.add('sv-play')
+        window.__svStart = performance.now()
+        // If the app code never loads, don't leave the splash covering the screen.
         setTimeout(function () { if (splash.isConnected) splash.remove() }, 9000)
       })()
     </script>

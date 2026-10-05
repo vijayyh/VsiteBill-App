@@ -99,6 +99,9 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
     its status on its own line so long vendor names aren't cut off; admin form inputs show a focus
     outline; Users says "bills" instead of "uploads".
   - 12 new tests in `backend/tests/test_bill_permissions.py` (86 total).
+- The API's root address (`localhost:5000/`, which the backend preview opens, and
+  `vsitebill-api.onrender.com`) showed Flask's bare "Not Found". It now shows "SiteVerify API is
+  running" with a button to the app (`FRONTEND_URL`). Test added (87 total).
 - This machine: git identity set for this repo only (`vijay hanumandla`), matching office commits.
 
 ### 2026-10-05 — UI redesign: remaining screens restyled (home, branch `ui-redesign`)

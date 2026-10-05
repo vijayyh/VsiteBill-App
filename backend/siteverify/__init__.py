@@ -1,4 +1,5 @@
 from flask import Flask, jsonify, redirect, send_from_directory
+from markupsafe import escape
 from flask_cors import CORS
 
 from . import storage
@@ -43,6 +44,25 @@ def create_app(test_config: dict | None = None) -> Flask:
     @app.get("/api/health")
     def health():
         return jsonify({"status": "ok"})
+
+    @app.get("/")
+    def index():
+        # This server is only the API; opening its address in a browser (the dev preview does)
+        # used to show Flask's bare "Not Found". Point people at the actual app instead.
+        frontend = escape(app.config["FRONTEND_URL"])
+        return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SiteVerify API</title></head>
+<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:#eef2f7;font-family:system-ui,sans-serif;color:#1e2320">
+  <div style="text-align:center;padding:24px">
+    <div style="font-size:22px;font-weight:700">SiteVerify API is running</div>
+    <p style="color:#6b6f6b;font-size:14px;margin:8px 0 20px">
+      This is the server behind the app. The app itself is at the link below.</p>
+    <a href="{frontend}" style="display:inline-block;background:#1a3c5e;color:#fff;font-weight:700;
+      text-decoration:none;border-radius:999px;padding:12px 22px">Open SiteVerify</a>
+  </div>
+</body></html>"""
 
     from sqlalchemy import inspect
 

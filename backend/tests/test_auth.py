@@ -54,3 +54,11 @@ def test_forgot_password_only_opens_one_pending_request(client, app):
         client.post("/api/auth/forgot-password", json={"phone": PHONES["supervisor"], "note": "lost phone"})
     with app.app_context():
         assert PasswordResetRequest.query.filter_by(status="PENDING").count() == 1
+
+
+def test_api_root_points_to_the_app_instead_of_not_found(client, app):
+    res = client.get("/")
+    assert res.status_code == 200
+    page = res.get_data(as_text=True)
+    assert "SiteVerify API is running" in page
+    assert f'href="{app.config["FRONTEND_URL"]}"' in page

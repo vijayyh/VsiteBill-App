@@ -153,6 +153,7 @@ frontend/
     lib/                    api client, session, offline queue, types, status labels, date formatting
     components/             shared UI (headers, status badge, authenticated image, photo viewer, …)
     screens/                Login, ForgotPassword, supervisor/, accountant/, admin/
+android/                    Android app (Trusted Web Activity of the live site); see android/README.md
 render.yaml                 Render setup (documentation; see note above)
 CLAUDE.md                   working instructions for Claude Code
 docs/                       this overview + the progress log

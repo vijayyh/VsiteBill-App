@@ -9,8 +9,10 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-05, end of session (home machine)_
 
-**State:** everything is merged to `main`, passed CI and is live (last commit `40b431e`). Nothing
-is half-done, and there are no open branches with unmerged work (`ui-redesign` is fully merged).
+**State:** everything is pushed to `main` and the web app is live. Nothing is half-done, and there
+are no open branches with unmerged work (`ui-redesign` is fully merged). The last commits after
+the live fixes were the mobile-app work: `87a76f8` (website, live), then `3ff2e2b` and `dddd70b`
+(the `android/` project and docs, which don't change the live site).
 - Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling) are done.
   Steps 3, 4, 7 and 8 were skipped for now.
 - **UI redesign is live** (`ea02c99`): glass style, a bottom bar per role, in-app alerts, Profile,
@@ -19,15 +21,20 @@ is half-done, and there are no open branches with unmerged work (`ui-redesign` i
   review or edit bills or see other supervisors' bills; admin password reset shows the new
   password; admin can reset any user's password and edit projects; the API root shows a status
   page. 87 backend tests.
-- **Android app v1.0.0 built** (APK + Play bundle, `android/`, see README → Mobile apps). It opens
-  the live site full-screen, so web deploys reach it automatically. Tested on an emulator. Not yet
-  installed on real phones or published. **iPhone:** Safari → Add to Home Screen (not yet checked
-  on a real iPhone).
+- **Android app v1.0.0 built.** Everything for it is in its own top-level `android/` folder, with
+  its own `android/README.md` (how it works, signing key, how to rebuild). It opens the live site
+  full-screen, so web deploys reach it automatically. Tested on an emulator; not yet installed on
+  real phones or published. The APK/AAB are git-ignored (`android/SiteVerify-1.0.0.apk` on the home
+  machine). **iPhone:** Safari → Add to Home Screen; not yet checked on a real iPhone.
 
 **Next step:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
-2. Decide on the free-plan sleep (open item 5) and deal with the security items 1 and 3.
-3. Then roadmap steps 3, 4, 7 and 8, as the user chooses.
+2. **Back up the Android signing key folder** (open item 9). Without it the app can never be
+   updated.
+3. Try the APK on a real Android phone and the home-screen app on a real iPhone.
+4. Decide on the free-plan sleep (open item 5). It also makes the first login in the app take
+   about 60 s. Then deal with the security items 1 and 3.
+5. Later: OCR (open item 6 has the agreed plan), and roadmap steps 3, 4, 7 and 8.
 
 **Home machine setup (done 2026-10-05):** the project is the `Sustaniq Vsite App` folder on the
 OneDrive Desktop. Python 3.14.7, backend venv, `npm install`, local SQLite migrated.
@@ -56,11 +63,27 @@ this repo only.
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
    `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
    pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
-6. Open question from the technical guide: **OCR provider**, Google Cloud Vision vs AWS Textract.
+6. **OCR (planned for later, decided 2026-10-05).** Goal: when a supervisor photographs a bill, the
+   vendor / item / quantity / PO fields fill themselves in. Plan:
+   - Run OCR **on the server** behind a swappable `extract(photo)` function (e.g.
+     `OCR_PROVIDER=google|custom`), with a new endpoint the bill form calls. The app and APK don't
+     change when the provider changes.
+   - Start with **Google Cloud Vision**. Later the user wants to **train their own OCR model**.
+   - From day one, store what the OCR read next to what the accountant finally confirmed. Every
+     matched bill becomes a labelled training example. Switch providers once the own model matches
+     Google on past bills.
+   - With no signal, OCR can't run on the server: the supervisor types the fields as today, or the
+     server fills them once the queued bill sends. Existing hooks: `quantityLowConfidence` and the
+     review screen's DOUBLE-CHECK badge.
+   - An own model needs a bigger server than Render's free plan (likely a separate service).
 7. ~~Bill photos are 5–7 MB each~~: fixed in step 9 (photos are now shrunk on the phone before
    upload). The 3 bills uploaded before that are still full size.
 8. Tidy-up (Supabase storage is now confirmed working on production): `render.yaml` still declares the old
    `delivery-uploads` disk, which is no longer needed.
+9. **Back up the Android signing key.** `C:\Users\vijay\SiteVerify-android-signing\` (home machine)
+   holds `siteverify-release.jks` and `PASSWORD.txt`. It's not in git by design. Copy it somewhere
+   safe (a USB drive or a password manager). To build the app at the office, copy it there
+   securely too.
 
 ---
 
@@ -112,6 +135,11 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   mode (the offline cache is in place; the website build was checked offline earlier).
 - First-launch notes for real phones: Android asks once to allow Chrome to use the camera; a
   phone that has never opened Chrome shows Chrome's welcome screen once.
+- Structure: at the user's request the mobile app is kept separate from the web app. Everything
+  is in the top-level `android/` folder with its own `android/README.md`; the main README only
+  points to it (`3ff2e2b`, `dddd70b`). The only Android-related file outside it is
+  `frontend/public/.well-known/assetlinks.json`, which the website has to serve.
+- Discussed and agreed the OCR plan for later (see open item 6).
 
 ### 2026-10-05 — Full test pass, redesign merged, permission and admin fixes (home)
 

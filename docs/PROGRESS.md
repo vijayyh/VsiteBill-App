@@ -17,8 +17,8 @@ runs on Postgres with photos in Supabase.
 **UI redesign is live** (merged to `main` as `ea02c99` on 2026-10-05, CI passed, checked on the
 live site). Glass style, bottom bar per role, in-app alerts, Profile, colour project headers.
 
-**Bug/security fixes from the full test pass (2026-10-05, home):** committed on `main`. See the
-session log. If they aren't pushed yet, push them; they close holes that are on the live site.
+**Bug/security fixes from the full test pass (2026-10-05, home):** live (`8f97631`, CI passed,
+deployed). See the session log.
 
 **Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
 roadmap steps 3, 4, 7 and 8, and the security items at the top of the list below.

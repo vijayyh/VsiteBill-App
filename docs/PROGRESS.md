@@ -7,21 +7,29 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-05 (home machine)_
+_Last updated: 2026-10-05, end of session (home machine)_
 
-**State:** Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling)
-are done and live. Steps 3, 4, 7 and 8 were skipped for now. Every push runs the backend tests
-(86) plus frontend lint and build on GitHub, and Render deploys only after they pass. Production
-runs on Postgres with photos in Supabase.
+**State:** everything is merged to `main`, passed CI and is live (last commit `40b431e`). Nothing
+is half-done, and there are no open branches with unmerged work (`ui-redesign` is fully merged).
+- Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling) are done.
+  Steps 3, 4, 7 and 8 were skipped for now.
+- **UI redesign is live** (`ea02c99`): glass style, a bottom bar per role, in-app alerts, Profile,
+  colour project headers.
+- **Fixes from the full test pass are live** (`8f97631`, `40b431e`): supervisors can no longer
+  review or edit bills or see other supervisors' bills; admin password reset shows the new
+  password; admin can reset any user's password and edit projects; the API root shows a status
+  page. 87 backend tests.
 
-**UI redesign is live** (merged to `main` as `ea02c99` on 2026-10-05, CI passed, checked on the
-live site). Glass style, bottom bar per role, in-app alerts, Profile, colour project headers.
+**Next step:**
+1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
+2. Decide on the free-plan sleep (open item 5) and deal with the security items 1 and 3.
+3. Then roadmap steps 3, 4, 7 and 8, as the user chooses.
 
-**Bug/security fixes from the full test pass (2026-10-05, home):** live (`8f97631`, CI passed,
-deployed). See the session log.
-
-**Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
-roadmap steps 3, 4, 7 and 8, and the security items at the top of the list below.
+**Home machine setup (done 2026-10-05):** the project is the `Sustaniq Vsite App` folder on the
+OneDrive Desktop. Python 3.14.7, backend venv, `npm install`, local SQLite migrated.
+`backend/.env` has empty values (copied from the template), so Google Drive doesn't work locally
+on this machine until the `GOOGLE_*` values are filled in from Render. Git identity is set for
+this repo only.
 
 ### Open items (most urgent first)
 

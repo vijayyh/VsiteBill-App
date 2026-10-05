@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Navigate, Route, BrowserRouter, Routes } from 'react-router-dom'
 import { PhoneShell } from './components/PhoneShell'
 import { RequireRole } from './components/RequireRole'
 import { useAutoFlushOfflineQueue } from './lib/offlineQueue'
+import { playSplash } from './lib/splash'
 import { SessionProvider, type Role } from './lib/session'
 import { Login } from './screens/Login'
 import { Welcome } from './screens/Welcome'
@@ -53,6 +54,8 @@ const ROUTES: Record<Role, [string, ReactNode][]> = {
 
 export default function App() {
   useAutoFlushOfflineQueue()
+  // The app has rendered under the opening splash: now play its intro.
+  useEffect(() => playSplash(), [])
 
   return (
     <SessionProvider>

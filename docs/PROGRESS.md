@@ -9,37 +9,19 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-05 (home machine)_
 
-**State:** Roadmap steps 1 (migrations), 2 (photo storage), 5 (automated tests) and 6 (CI/CD)
-are done and verified on the live site. Steps 3 and 4 were deliberately skipped for now and are
-still open. Every push runs 55 backend tests plus a frontend lint and build on GitHub, and Render
-deploys only after they pass. Production runs on Postgres with photos in Supabase (confirmed with
-real uploads). Supervisors now see all their bills, not just today's.
+**State:** Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling)
+are done and live. Steps 3, 4, 7 and 8 were skipped for now. Every push runs the backend tests
+(86) plus frontend lint and build on GitHub, and Render deploys only after they pass. Production
+runs on Postgres with photos in Supabase.
 
-Step 9 (scaling) is also done; steps 7 and 8 were skipped for now.
+**UI redesign is live** (merged to `main` as `ea02c99` on 2026-10-05, CI passed, checked on the
+live site). Glass style, bottom bar per role, in-app alerts, Profile, colour project headers.
 
-**IN PROGRESS: UI redesign, on branch `ui-redesign` (not merged, not live).** This is the
-glass-style rebuild based on the user's Dribbble reference.
-- Decisions: keep navy, colour project cards (no photos), in-app alerts with an unread badge, a
-  welcome screen, and "Classic frosted glass".
-- Done:
-  - Glass theme (`index.css`: `glass`, `glass-strong`, colour-patch `bg-page`) and the shared
-    pieces in `components/ui.tsx`.
-  - `BottomNav` (role tabs with a raised centre button), `AppHeader`/`BellButton`, `ProjectCard`,
-    `BillRow`, `ProjectCounts`.
-  - Welcome, Login, supervisor Home / My bills / Add bill, shared Alerts and Profile (change
-    password, sign out), accountant Home / Projects / Review queue, and admin moved into the bottom
-    bar via `AdminShell`.
-  - Backend: notifications (`notify.py`, `/api/notifications`, migration `d0dc350e48df`),
-    `/api/auth/change-password`, `GET /api/deliveries` (cross-project; supervisors see only their
-    own), and phone on `/api/auth/me`. 74 backend tests pass; the frontend type-checks.
-- **All screens restyled (2026-10-05, home):** supervisor Project, UploadOptions, DeliveryDetails,
-  UploadSuccess; accountant ProjectGallery and ReviewDelivery; ForgotPassword. Both project
-  screens share a new colour hero header (`components/ProjectHero.tsx`). Every screen checked in
-  the preview; lint (warnings only, as before) and build pass.
-- **Still to do:** merge `ui-redesign` to `main` (which deploys it) and check the live site.
+**Bug/security fixes from the full test pass (2026-10-05, home):** committed on `main`. See the
+session log. If they aren't pushed yet, push them; they close holes that are on the live site.
 
-**Next step after that:** the user decides how to handle the free-plan sleep (open item 5). Still open:
-roadmap steps 3, 4, 7 and 8, and the security item at the top of the list below.
+**Next step:** the user decides how to handle the free-plan sleep (open item 5). Still open:
+roadmap steps 3, 4, 7 and 8, and the security items at the top of the list below.
 
 ### Open items (most urgent first)
 
@@ -92,6 +74,32 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-05 — Full test pass, redesign merged, permission and admin fixes (home)
+
+- Tested everything on the redesign branch: the 74 backend tests, a script calling all 34 API
+  endpoints as anonymous / supervisor / accountant / admin, and a click-through of every screen and
+  button for all three roles (including offline send and the production build opening offline).
+  Test records were removed afterwards by restoring a database backup.
+- **Merged `ui-redesign` into `main`** (`ea02c99`). CI passed; the live bundle has the new screens
+  and the API has the notifications endpoint (migration `d0dc350e48df` ran on production).
+- Fixes found by the test pass (all were also on the live site before):
+  1. Supervisors could edit, flag or match any bill through the API. `PATCH /api/deliveries/<id>`
+     is now accountant/admin only.
+  2. Supervisors could read other supervisors' bills (`GET /api/deliveries/<id>`, and the project
+     bill list without `?uploadedByMe=1`). Now they only ever see their own (404 otherwise).
+  3. `save-to-drive` is now accountant/admin only.
+  4. Admin "Set new password" on a reset request: the new password disappeared immediately (the
+     request left the pending list), so it could never be relayed. It now stays until "Done".
+  5. Non-numeric or negative ordered/delivered in a review caused a 500. Now a 400, and a bad
+     request changes nothing.
+  6. New admin buttons: "Reset password" per user (confirm step; not on your own account), and
+     "Edit" per project (name and colour; the code can't change).
+  - Small: Back from a bill opened via an alert returns to Alerts; the waiting-for-signal card puts
+    its status on its own line so long vendor names aren't cut off; admin form inputs show a focus
+    outline; Users says "bills" instead of "uploads".
+  - 12 new tests in `backend/tests/test_bill_permissions.py` (86 total).
+- This machine: git identity set for this repo only (`vijay hanumandla`), matching office commits.
 
 ### 2026-10-05 — UI redesign: remaining screens restyled (home, branch `ui-redesign`)
 

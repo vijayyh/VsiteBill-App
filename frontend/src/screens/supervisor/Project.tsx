@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
 import { PhotoViewer } from '../../components/PhotoViewer'
@@ -40,24 +40,26 @@ const thumbClass = 'w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 
 
 function WaitingCard({ item }: { item: QueuedUpload }) {
   return (
-    <div className="glass rounded-card flex gap-3 p-3 ring-1 ring-warning-border/60">
-      <div className={thumbClass}>
-        <QueuedPhotoThumb blob={item.blob} />
+    <div className="glass rounded-card p-3 ring-1 ring-warning-border/60">
+      {/* Full-width status strip, so a long vendor name isn't squeezed by a wide badge. */}
+      <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-warning-text bg-warning-bg rounded-full px-2.5 py-1 mb-2.5 w-fit">
+        <IconClock size={12} stroke="var(--color-warning-text)" strokeWidth={2.5} />
+        Waiting for signal · sends by itself
       </div>
-      <div className="flex-grow min-w-0">
-        <BillSummary
-          vendor={item.vendor}
-          item={item.item}
-          badge={
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-[3px] whitespace-nowrap text-warning-text bg-warning-bg">
-              <IconClock size={11} stroke="var(--color-warning-text)" strokeWidth={2.5} />
-              Waiting for signal
-            </span>
-          }
-          delivered={item.delivered === '' ? null : Number(item.delivered)}
-          poNumber={item.poNumber || null}
-          timestamp={item.createdAt}
-        />
+      <div className="flex gap-3">
+        <div className={thumbClass}>
+          <QueuedPhotoThumb blob={item.blob} />
+        </div>
+        <div className="flex-grow min-w-0">
+          <BillSummary
+            vendor={item.vendor}
+            item={item.item}
+            badge={null}
+            delivered={item.delivered === '' ? null : Number(item.delivered)}
+            poNumber={item.poNumber || null}
+            timestamp={item.createdAt}
+          />
+        </div>
       </div>
     </div>
   )
@@ -91,6 +93,7 @@ function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: 
 
 export function SupervisorProject() {
   const { projectId = '' } = useParams()
+  const backTo = (useLocation().state as { from?: string } | null)?.from ?? '/supervisor'
   const { data: projectData, error: projectError } = useApiGet<{ project: Project }>(
     `/api/projects/${projectId}`,
   )
@@ -129,7 +132,7 @@ export function SupervisorProject() {
   return (
     <div className="flex flex-col flex-grow text-ink">
       <ProjectHero
-        backTo="/supervisor"
+        backTo={backTo}
         code={project?.code}
         name={project?.name}
         accent={project?.accent}

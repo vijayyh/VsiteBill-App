@@ -51,7 +51,8 @@ def list_deliveries(project_id):
     if status_param:
         query = query.filter(Delivery.status.in_(status_param.split(",")))
 
-    if request.args.get("uploadedByMe") == "1":
+    # Supervisors only ever see their own bills, whatever the query string says.
+    if request.args.get("uploadedByMe") == "1" or g.current_user.role == "supervisor":
         query = query.filter_by(uploaded_by_id=g.current_user.id)
 
     if request.args.get("today") == "1":

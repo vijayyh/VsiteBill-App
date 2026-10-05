@@ -16,7 +16,9 @@ export function AdminDashboard() {
     driveStatus?.connected ? '/api/admin/drive/shared-drives' : null,
   )
   const [resolving, setResolving] = useState<number | null>(null)
-  const [resolvedPasswords, setResolvedPasswords] = useState<Record<number, string>>({})
+  // Requests resolved on this screen, kept (with their new password) after they leave the
+  // pending list, so the admin can still read the password out until they tap Done.
+  const [resolved, setResolved] = useState<{ request: PasswordResetRequest; password: string }[]>([])
   const [connecting, setConnecting] = useState(false)
   const [settingDrive, setSettingDrive] = useState(false)
   const [driveError, setDriveError] = useState<string | null>(null)
@@ -30,7 +32,12 @@ export function AdminDashboard() {
     setSearchParams({}, { replace: true })
   }, [searchParams])
 
-  const pending = resetsData?.requests ?? []
+  const stillPending = resetsData?.requests ?? []
+  const pending = [
+    ...stillPending,
+    ...resolved.map((r) => r.request).filter((req) => !stillPending.some((p) => p.id === req.id)),
+  ]
+  const passwordFor = (id: number) => resolved.find((r) => r.request.id === id)?.password
 
   async function connectDrive() {
     setConnecting(true)
@@ -66,10 +73,10 @@ export function AdminDashboard() {
   async function resolve(requestId: number) {
     setResolving(requestId)
     try {
-      const res = await api.post<{ temporaryPassword: string }>(
+      const res = await api.post<{ temporaryPassword: string; request: PasswordResetRequest }>(
         `/api/admin/password-resets/${requestId}/resolve`,
       )
-      setResolvedPasswords((prev) => ({ ...prev, [requestId]: res.temporaryPassword }))
+      setResolved((prev) => [...prev, { request: res.request, password: res.temporaryPassword }])
       refetchOverview()
       refetchResets()
     } finally {
@@ -216,13 +223,21 @@ export function AdminDashboard() {
                 </div>
                 {req.note && <div className="text-xs text-ink-muted mt-1 italic">"{req.note}"</div>}
 
-                {resolvedPasswords[req.id] ? (
+                {passwordFor(req.id) ? (
                   <div className="mt-2.5 bg-success-bg border border-success-border rounded-lg px-3 py-2">
                     <div className="text-[11px] text-success-text font-semibold">
                       New password — relay this to {req.user.name}:
                     </div>
-                    <div className="text-[15px] font-bold text-success-text tracking-wide mt-0.5">
-                      {resolvedPasswords[req.id]}
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <div className="text-[15px] font-bold text-success-text tracking-wide select-all">
+                        {passwordFor(req.id)}
+                      </div>
+                      <button
+                        onClick={() => setResolved((prev) => prev.filter((r) => r.request.id !== req.id))}
+                        className="text-[12px] font-bold text-success-text bg-white/70 rounded-full px-3 py-1"
+                      >
+                        Done
+                      </button>
                     </div>
                   </div>
                 ) : (

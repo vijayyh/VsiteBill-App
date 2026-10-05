@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { TabScreen } from '../../components/BottomNav'
 import { EmptyState, PageTitle } from '../../components/ui'
 import { IconAlertTriangle, IconBell, IconBill, IconCheck, IconLock } from '../../components/icons'
@@ -19,6 +19,7 @@ const KIND_STYLE: Record<NotificationKind, { icon: Icon; tint: string; color: st
 
 export function Alerts() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { data, loading, refetch } = useApiGet<{ notifications: AppNotification[]; unreadCount: number }>(
     '/api/notifications',
   )
@@ -30,7 +31,8 @@ export function Alerts() {
       await api.post(`/api/notifications/${item.id}/read`).catch(() => {})
       refreshUnreadCount()
     }
-    if (item.link) navigate(item.link)
+    // Opened screens use `from` for their back button, so Back returns to Alerts.
+    if (item.link) navigate(item.link, { state: { from: pathname } })
     else refetch()
   }
 

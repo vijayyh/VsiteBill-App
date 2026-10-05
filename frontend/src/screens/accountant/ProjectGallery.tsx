@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
 import { IconBill, IconCloud } from '../../components/icons'
@@ -60,6 +60,7 @@ function BillCard({
 
 export function ProjectGallery() {
   const { projectId = '' } = useParams()
+  const backTo = (useLocation().state as { from?: string } | null)?.from ?? '/accountant/projects'
   const { data: projectData, error: projectError } = useApiGet<{ project: Project }>(
     `/api/projects/${projectId}`,
   )
@@ -91,7 +92,7 @@ export function ProjectGallery() {
   return (
     <div className="flex flex-col flex-grow text-ink">
       <ProjectHero
-        backTo="/accountant/projects"
+        backTo={backTo}
         code={project?.code}
         name={project?.name}
         accent={project?.accent}

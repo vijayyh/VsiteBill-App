@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 // Falls back to whatever host the page itself was loaded from (with the backend's
 // port) so this also works when a phone on the same WiFi opens the dev server by
 // LAN IP — hardcoding "localhost" there would point the phone at itself.
-const API_BASE =
+export const API_BASE =
   import.meta.env.VITE_API_BASE ?? `${window.location.protocol}//${window.location.hostname}:5000`
 const TOKEN_KEY = 'siteverify.token'
 

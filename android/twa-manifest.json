@@ -10,7 +10,7 @@
   "navigationColorDark": "#1E2320",
   "navigationDividerColor": "#E2E2DE",
   "navigationDividerColorDark": "#1E2320",
-  "backgroundColor": "#F5F5F2",
+  "backgroundColor": "#1A3C5E",
   "enableNotifications": false,
   "startUrl": "/",
   "iconUrl": "https://vsitebill-app.onrender.com/pwa-512.png",
@@ -20,14 +20,16 @@
     "path": "C:/Users/vijay/SiteVerify-android-signing/siteverify-release.jks",
     "alias": "siteverify"
   },
-  "appVersionName": "1.0.0",
-  "appVersionCode": 1,
+  "appVersionName": "1.0.1",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://vsitebill-app.onrender.com/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
@@ -37,5 +39,5 @@
   "fingerprints": [],
   "additionalTrustedOrigins": [],
   "retainedBundles": [],
-  "appVersion": "1.0.0"
+  "appVersion": "1.0.1"
 }

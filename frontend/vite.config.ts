@@ -21,6 +21,8 @@ export default defineConfig({
       // with no signal at all.
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // iPhone launch images are only fetched by iOS when the app is added to the home screen.
+        globIgnores: ['**/splash/**'],
         navigateFallback: '/index.html',
         runtimeCaching: [
           {
@@ -35,7 +37,8 @@ export default defineConfig({
         short_name: 'SiteVerify',
         description: 'Delivery challan reconciliation for KH & Sustaniq',
         theme_color: '#1A3C5E',
-        background_color: '#F5F5F2',
+        // Navy: the colour of the opening splash, so the installed app opens straight into it.
+        background_color: '#1A3C5E',
         display: 'standalone',
         start_url: '/',
         icons: [

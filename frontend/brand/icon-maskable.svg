@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- SiteVerify app icon, master artwork. Rounded tile; icon-maskable.svg is the same art full-bleed.
+  <!-- SiteVerify app icon, master artwork. Full-bleed version of icon.svg (Android adaptive icon, iPhone home screen): same art, square background.
        After editing, regenerate the PNGs: `npm run icons` in frontend/. The opening splash in
        index.html draws this same artwork inline; keep the two in step. -->
   <defs>
@@ -26,7 +26,7 @@
       <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="114" fill="url(#sv-glow)"/>
+  <rect width="512" height="512" fill="url(#sv-glow)"/>
   <g transform="translate(256 252)">
     <path filter="url(#sv-lift)" fill="#FFFFFF"
       d="M-102 -112 A24 24 0 0 1 -78 -136 H40 L102 -74 V112 A24 24 0 0 1 78 136 H-78 A24 24 0 0 1 -102 112 Z"/>

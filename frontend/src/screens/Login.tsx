@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { IconShield } from '../components/icons'
 import { DEMO_CREDENTIALS, useSession } from '../lib/session'
 
 export function Login() {
@@ -10,6 +9,17 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // A login that takes this long is the free-plan server waking up, not a fault: say so.
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    if (!busy) return
+    const timer = window.setTimeout(() => setSlow(true), 5000)
+    return () => {
+      window.clearTimeout(timer)
+      setSlow(false)
+    }
+  }, [busy])
 
   async function attemptLogin(phoneValue: string, passwordValue: string) {
     setError(null)
@@ -41,9 +51,7 @@ export function Login() {
   return (
     <div className="flex-grow flex flex-col justify-center px-6 py-8 text-ink">
       <div className="flex items-center gap-2.5 mb-8">
-        <div className="w-11 h-11 rounded-full bg-accent flex items-center justify-center flex-shrink-0 shadow-soft">
-          <IconShield size={20} stroke="#FFFFFF" />
-        </div>
+        <img src="/favicon.svg" alt="" width={44} height={44} className="w-11 h-11 flex-shrink-0 drop-shadow-[0_6px_10px_rgba(26,60,94,0.28)]" />
         <div>
           <div className="text-[17px] font-bold leading-tight">SiteVerify</div>
           <div className="text-xs text-ink-muted mt-0.5">KH &amp; Sustaniq sites</div>
@@ -87,6 +95,11 @@ export function Login() {
         >
           {busy ? 'Logging in…' : 'Log in'}
         </button>
+        {slow && (
+          <div className="text-[12.5px] text-ink-muted text-center -mt-1 leading-snug" role="status">
+            The server is waking up. The first login of the day can take up to a minute.
+          </div>
+        )}
       </form>
 
       <div className="flex items-center gap-2.5 my-[18px]">

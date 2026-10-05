@@ -98,6 +98,12 @@
     0 10px 30px -16px rgba(26, 60, 94, 0.3);
 }
 
+/* Space for the iPhone home-indicator bar when installed to the home screen (0 everywhere else).
+   A variable rather than env() directly, so it can be overridden to preview an iPhone layout. */
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @layer base {
   * {
     box-sizing: border-box;

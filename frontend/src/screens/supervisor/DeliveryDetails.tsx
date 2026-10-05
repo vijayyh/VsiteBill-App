@@ -134,7 +134,7 @@ export function DeliveryDetails() {
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 px-3 pb-3 pt-2">
+      <div className="sticky bottom-0 z-10 px-3 pb-[calc(0.75rem+var(--safe-bottom))] pt-2">
         <div className="glass-strong rounded-[24px] p-2.5 flex flex-col gap-2">
           {error && <div className="text-[12.5px] font-semibold text-warning-text text-center pt-1">{error}</div>}
           {showErrors && missingFields.length > 0 && (

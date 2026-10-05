@@ -37,7 +37,7 @@ export function UploadOptions() {
         className="absolute inset-0 bg-ink/35 backdrop-blur-[3px]"
       />
 
-      <div className="fixed bottom-0 sm:bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-3 pb-3 z-20">
+      <div className="fixed bottom-0 sm:bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-3 pb-[calc(0.75rem+var(--safe-bottom))] z-20">
         <div className="glass-strong rounded-[28px] px-5 pt-2.5 pb-4">
           <div className="w-10 h-1 rounded-full bg-ink/15 mx-auto mb-5" />
           <div className="text-[18px] font-bold">Add a bill</div>

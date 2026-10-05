@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "in.sustaniq.siteverify",
+      "sha256_cert_fingerprints": [
+        "B0:81:1A:73:1A:57:F8:24:C3:92:A4:C4:F9:33:ED:54:0E:F0:D7:FF:45:1C:22:70:EF:39:F2:BB:2F:FE:A1:7C"
+      ]
+    }
+  }
+]

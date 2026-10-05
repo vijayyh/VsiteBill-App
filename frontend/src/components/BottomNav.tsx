@@ -106,7 +106,7 @@ export function BottomNav() {
   const [left, right] = center ? [items.slice(0, 2), items.slice(2)] : [items, []]
 
   return (
-    <nav className="fixed bottom-0 sm:bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-3 pb-3 z-20">
+    <nav className="fixed bottom-0 sm:bottom-6 left-1/2 -translate-x-1/2 w-full max-w-[430px] px-3 pb-[calc(0.75rem+var(--safe-bottom))] z-20">
       <div className="flex items-end glass-strong rounded-[26px] px-1.5">
         {left.map((item) => (
           <Tab key={item.to} item={item} unread={unread} />
@@ -125,7 +125,7 @@ export function TabScreen({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col flex-grow text-ink">
       {children}
-      <div className="h-28 flex-shrink-0" />
+      <div className="h-[calc(7rem+var(--safe-bottom))] flex-shrink-0" />
       <BottomNav />
     </div>
   )

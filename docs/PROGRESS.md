@@ -7,43 +7,41 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-05, end of session (home machine)_
+_Last updated: 2026-10-07 (home machine)_
 
-**State:** everything is pushed to `main` and the web app is live. Nothing is half-done, and there
-are no open branches with unmerged work (`ui-redesign` is fully merged). The last commits after
-the live fixes were the mobile-app work: `87a76f8` (website, live), then `3ff2e2b` and `dddd70b`
-(the `android/` project and docs, which don't change the live site).
+**State:** `main` is unchanged since 2026-10-05, and the web app is live as before. The new
+**native mobile app** (React Native + Expo) is on the **`native-app` branch**, in its own top-level
+`native-app/` folder. It is not merged, and not installed on a real phone yet.
 - Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling) are done.
   Steps 3, 4, 7 and 8 were skipped for now.
-- **UI redesign is live** (`ea02c99`): glass style, a bottom bar per role, in-app alerts, Profile,
-  colour project headers.
-- **Fixes from the full test pass are live** (`8f97631`, `40b431e`): supervisors can no longer
-  review or edit bills or see other supervisors' bills; admin password reset shows the new
-  password; admin can reset any user's password and edit projects; the API root shows a status
-  page. 87 backend tests.
-- **Android app v1.0.1** (new icon, navy native splash). Everything for it is in its own top-level
-  `android/` folder, with its own `android/README.md`. It opens the live site full-screen, so web
-  deploys reach it automatically. v1.0.0 is installed on the user's phone, and v1.0.1 must be
-  installed over it once to get the new icon. The APK/AAB are git-ignored
-  (`android/SiteVerify-1.0.1.apk` on the home machine). **iPhone:** Safari → Add to Home Screen;
-  not yet checked on a real iPhone.
-- **New logo and animated opening splash are live** on web and in both apps. The splash wakes the
-  sleeping server and waits up to 5 s (see the session log).
+- The browser-based Android app (`android/`, v1.0.1) is still the one on phones. It shows the live
+  site, so web deploys reach it automatically. **iPhone:** Safari → Add to Home Screen; not yet
+  checked on a real iPhone.
+- **Native app:** every screen of all three roles is built and was checked side by side against
+  the web app on the emulator (local backend, test data deleted afterwards): layout within 1–2 dp,
+  frosted glass, camera, gallery, offline queue and auto-send, review match/flag, alerts, admin
+  users/projects/password resets. Typecheck and lint are clean. A signed release APK is built:
+  `native-app/SiteVerify-Beta-2.0.0.apk` (git-ignored). See `native-app/README.md` and the
+  2026-10-06/07 session log.
 
 **Next step:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
-2. **Back up the Android signing key folder** (open item 9). Without it the app can never be
+2. **Try the native app on a real phone:** install `native-app/SiteVerify-Beta-2.0.0.apk`. It
+   installs next to the current app and uses the live server. Compare the two, then decide: merge `native-app` into
+   `main`, and later build the production variant so it replaces the current app.
+3. Decide on the offline gap both apps share (open item 10).
+4. **Back up the Android signing key folder** (open item 9). Without it the app can never be
    updated.
-3. Try the APK on a real Android phone and the home-screen app on a real iPhone.
-4. Decide on the free-plan sleep (open item 5). It also makes the first login in the app take
-   about 60 s. Then deal with the security items 1 and 3.
-5. Later: OCR (open item 6 has the agreed plan), and roadmap steps 3, 4, 7 and 8.
+5. Decide on the free-plan sleep (open item 5), then deal with the security items 1 and 3.
+6. Later: OCR (open item 6 has the agreed plan), roadmap steps 3, 4, 7 and 8, and the iPhone build
+   of the native app (needs a Mac or EAS Build, plus an Apple Developer account).
 
 **Home machine setup (done 2026-10-05):** the project is the `Sustaniq Vsite App` folder on the
 OneDrive Desktop. Python 3.14.7, backend venv, `npm install`, local SQLite migrated.
 `backend/.env` has empty values (copied from the template), so Google Drive doesn't work locally
 on this machine until the `GOOGLE_*` values are filled in from Render. Git identity is set for
-this repo only.
+this repo only. Native app tooling (added 2026-10-05/06): JDK 17 in `C:\Users\vijay\.jdks\`, the
+Android SDK with NDK 27, and the emulator `SiteVerify_Pixel` (Android 15).
 
 ### Open items (most urgent first)
 
@@ -86,7 +84,14 @@ this repo only.
 9. **Back up the Android signing key.** `C:\Users\vijay\SiteVerify-android-signing\` (home machine)
    holds `siteverify-release.jks` and `PASSWORD.txt`. It's not in git by design. Copy it somewhere
    safe (a USB drive or a password manager). To build the app at the office, copy it there
-   securely too.
+   securely too. The native app's release builds use the same key (see `native-app/README.md`).
+10. **Offline: screens can't load data they haven't loaded yet (web app and native app alike).**
+   The project list and project pages are fetched live and not kept on the device. With no
+   signal, a supervisor can only capture a bill from a project screen that was already open:
+   opening "Add bill" or a project shows "Failed to fetch" (the web then bounces to Home). Queued
+   bills do save and send themselves when the signal returns (checked on the emulator in airplane
+   mode). Fix, in both apps: keep the last project list on the device and use it when offline.
+   Waiting on the user's go-ahead, since it changes behaviour.
 
 ---
 
@@ -112,6 +117,63 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-06/07 — Native mobile app (React Native + Expo), branch `native-app` (home)
+
+The user asked for a real native app instead of the browser-based APK, with the UI exactly like
+the web app, on a separate branch and in its own folder. Built with React Native 0.86 + Expo SDK
+57 (TypeScript, Expo Router), the stack big companies use for cross-platform apps. Everything is
+in `native-app/` (see its README); the backend and website are untouched.
+
+- **Variants:** "SiteVerify Beta" (`in.sustaniq.siteverify.beta`, the default) installs next to
+  the current app for side-by-side testing; `APP_VARIANT=production` gives `in.sustaniq.siteverify`
+  with versionCode 100, which will install over the current app (same signing key).
+- **All screens built**, each mirroring its web file: welcome, login, forgot password; supervisor
+  home, my bills, add bill, project page, upload sheet, bill details, sent/saved; accountant home,
+  projects, review queue, gallery, bill review; admin overview (Drive, counts, password resets),
+  users, projects, bills; alerts and profile for every role; the animated opening splash (same
+  timing and server wake-up as the web).
+- **Native features:** the phone's own camera and photo picker, photo shrinking before upload,
+  offline queue in SQLite with automatic sending (on start, on reconnect, when the app comes back,
+  every 20 s), pinch/double-tap zoom on photos, pull to refresh, native screen transitions, Android
+  back button through screens and tabs, frosted glass blur (Android 12+).
+- **Checked side by side** with the web app (Chrome at 411 px vs the emulator, 411 dp wide),
+  measuring element positions: every screen within 1–2 dp. Fixes made while checking:
+  - Uploads never reached the server: Expo's `fetch` silently failed on the photo part, so every
+    bill sat in the offline queue. Fixed (`billForm`), then checked online and offline.
+  - Form fields lost their padding when the focus or "missing" outline appeared (an Android quirk),
+    so the frame and outline moved to a wrapper view.
+  - Web `ring` styles drawn as outside outlines; rings the web never actually shows (next to a
+    shadow or glass) left out.
+  - Exact web line heights for `text-sm`/`text-xs` texts; the admin forms' compact field style;
+    two-row note boxes; Cancel/Save sizing; project card width; welcome picture size; login and
+    header positions; skyline opacity; photo viewer layout.
+  - Frosted glass with real blur (`expo-blur`) on the bottom bar, inner headers, the form action
+    bars (the form now scrolls under them, as on the web), project header pills and counts, photo
+    pills and the dimmed overlay behind "Add a bill". Its default noise texture is patched off
+    (`patches/`), and the radius corrected for the library's 4× scale; compared with the web at
+    the same scale.
+  - Option sheets (role, Shared Drive) made solid; network errors show the web's "Failed to fetch"
+    instead of a Java exception; admin forms focus an empty required field like the web's
+    `required` instead of dimming the button.
+- **Flows verified on the emulator** against the local backend (photo bucket switched off): camera
+  → details → send (online, and in airplane mode → "Saved on this phone" → sent by itself 6 s
+  after reconnecting); accountant match, flag with note, alerts open the bill and mark it read;
+  supervisor gets matched/flagged alerts; forgot password → admin sets a new password; admin
+  creates a user (role picker), edits a project; login error message. The database backup was
+  restored and the test photos deleted afterwards (3 users, 3 projects, 0 bills).
+- **Found, not changed (same on the website):** offline, the app can't load screens it hasn't
+  loaded yet (open item 10).
+- **Release APK built (2026-10-07):** `native-app/SiteVerify-Beta-2.0.0.apk` (git-ignored, 94 MB,
+  version 2.0.0 / code 100), signed with the existing key: `plugins/withReleaseSigning.js` reads it
+  from Gradle properties at build time, never from git. The signature matches the current app's
+  (same SHA-256). Two failed attempts first: inside the OneDrive folder the C++ step fails
+  ("build.ninja still dirty"), and with default settings the 7 GB PC runs out of memory. Building
+  from a copy at `C:\sv\native-app` with 2 workers works (recipe in the README, ~20 min).
+- **Release APK checked on the emulator:** installs, opens with no crash; a screen recording of a
+  cold start shows native splash → the animated intro → Welcome. Not logged in (it uses the live
+  server, so no test data was created there).
+- Nothing merged into `main`.
 
 ### 2026-10-05 — New app icon and animated opening splash; Android app v1.0.1 (home)
 

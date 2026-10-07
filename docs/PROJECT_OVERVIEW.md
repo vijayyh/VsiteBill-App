@@ -77,7 +77,7 @@ Any bill can be saved to Google Drive; bills are never deleted by the app.
 | Photo storage | Supabase Storage via its S3-compatible API (boto3); local disk fallback in dev |
 | Archive | Google Drive API v3 (OAuth2 + PKCE, one admin-connected account) |
 | Hosting | Render: static site + web service + managed Postgres |
-| Native app (in progress) | React Native 0.86 + Expo SDK 57, TypeScript, Expo Router; SQLite upload queue; `native-app/` |
+| Native app (beta) | React Native 0.86 + Expo SDK 57, TypeScript, Expo Router; SQLite upload queue; `native-app/` |
 
 ## Data model (`backend/siteverify/models.py`)
 
@@ -156,7 +156,7 @@ frontend/
     screens/                Login, ForgotPassword, supervisor/, accountant/, admin/
 android/                    Android app (Trusted Web Activity of the live site); see android/README.md
 native-app/                 native mobile app (React Native + Expo), same screens and the same API;
-                            on the native-app branch, not yet merged; see native-app/README.md
+                            beta, not yet on phones; see native-app/README.md
 render.yaml                 Render setup (documentation; see note above)
 CLAUDE.md                   working instructions for Claude Code
 docs/                       this overview + the progress log

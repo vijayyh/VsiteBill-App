@@ -52,10 +52,10 @@ CI (`.github/workflows/ci.yml`) runs the backend tests plus the frontend `npm ru
 `npm run build` on every push, and Render only deploys after it passes. Run the same commands
 locally before pushing. A red CI run means the live site did **not** update.
 
-## Native app (`native-app/`, branch `native-app`)
+## Native app (`native-app/`)
 
-A React Native + Expo version of the app (same screens, same API), being built on the
-`native-app` branch; see [native-app/README.md](native-app/README.md). While it exists, **a change
+A React Native + Expo version of the app (same screens, same API), in `main` since 2026-10-07;
+see [native-app/README.md](native-app/README.md). While it exists, **a change
 to a web screen needs the same change in its native twin** (each native screen names the web file
 it mirrors). Verify it on the Android emulator against the local backend, never the live one.
 Run `npx tsc --noEmit` and `npx expo lint` in `native-app/` before committing. `native-app/android/`

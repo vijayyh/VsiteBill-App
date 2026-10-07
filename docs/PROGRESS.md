@@ -9,9 +9,10 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-07 (home machine)_
 
-**State:** `main` is unchanged since 2026-10-05, and the web app is live as before. The new
-**native mobile app** (React Native + Expo) is on the **`native-app` branch**, in its own top-level
-`native-app/` folder. It is not merged, and not installed on a real phone yet.
+**State:** everything is in `main` and pushed. The web app is live and unchanged since 2026-10-05.
+The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
+own top-level `native-app/` folder; nothing outside that folder changed except docs. It is not
+installed on a real phone yet.
 - Roadmap steps 1 (migrations), 2 (photo storage), 5 (tests), 6 (CI/CD) and 9 (scaling) are done.
   Steps 3, 4, 7 and 8 were skipped for now.
 - The browser-based Android app (`android/`, v1.0.1) is still the one on phones. It shows the live
@@ -27,8 +28,8 @@ _Last updated: 2026-10-07 (home machine)_
 **Next step:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
 2. **Try the native app on a real phone:** install `native-app/SiteVerify-Beta-2.0.0.apk`. It
-   installs next to the current app and uses the live server. Compare the two, then decide: merge `native-app` into
-   `main`, and later build the production variant so it replaces the current app.
+   installs next to the current app and uses the live server. Compare the two; if it's good, build
+   the production variant so it replaces the current app.
 3. Decide on the offline gap both apps share (open item 10).
 4. **Back up the Android signing key folder** (open item 9). Without it the app can never be
    updated.
@@ -173,7 +174,10 @@ in `native-app/` (see its README); the backend and website are untouched.
 - **Release APK checked on the emulator:** installs, opens with no crash; a screen recording of a
   cold start shows native splash → the animated intro → Welcome. Not logged in (it uses the live
   server, so no test data was created there).
-- Nothing merged into `main`.
+- Merged into `main` on 2026-10-07 (fast-forward, at the user's request, after the checks above).
+  Before pushing: 87 backend tests pass, frontend lint and build pass, and nothing in `frontend/`,
+  `backend/` or `android/` changed, so the live site and Render are unaffected (each Render service
+  only redeploys when its own folder changes).
 
 ### 2026-10-05 — New app icon and animated opening splash; Android app v1.0.1 (home)
 

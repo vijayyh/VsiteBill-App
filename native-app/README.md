@@ -8,8 +8,8 @@ while looking and behaving like the website screen for screen.
 It talks to the **same backend API** (`backend/`, live at `https://vsitebill-api.onrender.com`).
 Nothing in the backend or the website changed for it.
 
-> Status: built and verified screen by screen against the web app on an Android emulator, on the
-> `native-app` branch. Not yet on the `main` branch, and not yet installed on a real phone.
+> Status: built and verified screen by screen against the web app on an Android emulator; in the
+> `main` branch since 2026-10-07. Not yet installed on a real phone.
 
 ## Two variants
 

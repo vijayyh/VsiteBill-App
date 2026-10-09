@@ -7,7 +7,20 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-09, end of session (home machine; the user continues at the office)_
+_Last updated: 2026-10-09, end of session (office machine; the user continues at home)_
+
+**Next session (home PC): start OCR with Google Cloud Vision** (open item 6 has the agreed plan).
+The user's order:
+1. **Web app first**, checked in the Vite dev preview (`siteverify-frontend` + `siteverify-backend`).
+2. **Then the browser-based APK** (`android/`): it shows the live site, so it gets OCR as soon as
+   the web change is pushed and deployed. No new APK needed; just check it on a phone.
+3. **Only if that works, add it to the native app beta** (`native-app/`, same server endpoint).
+
+Before any code, the user does the Google Cloud setup: enable the **Cloud Vision API** (billing on;
+first 1,000 images/month free, then about $1.50 per 1,000), create an **API key restricted to the
+Vision API**, and put it in `backend/.env` as `GOOGLE_VISION_API_KEY=` themselves (never pasted
+into chat); add the same to Render → vsitebill-api → Environment when it goes live. Then build
+one step at a time: server `extract(photo)` + endpoint + tests first, then the web bill form.
 
 **State:** everything is in `main` and pushed. The web app is live and unchanged since 2026-10-05.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
@@ -25,7 +38,7 @@ installed on a real phone yet.
   `native-app/SiteVerify-Beta-2.0.0.apk` (git-ignored). See `native-app/README.md` and the
   2026-10-06/07 session log.
 
-**Next step:**
+**Other next steps:**
 1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
 2. **Try the native app on a real phone:** install `native-app/SiteVerify-Beta-2.0.0.apk`. It
    installs next to the current app and uses the live server. Compare the two; if it's good, build
@@ -36,7 +49,7 @@ installed on a real phone yet.
 5. Decide on the free-plan sleep (open item 5), then deal with the security items 1 and 3.
 6. **iPhone (open item 11):** for now iPhone users add the website to their home screen. The
    native iPhone app waits on the user getting an Apple Developer account.
-7. Later: OCR (open item 6 has the agreed plan), roadmap steps 3, 4, 7 and 8.
+7. Later: roadmap steps 3, 4, 7 and 8; open item 12 (small app differences).
 
 **Not in git, so not on the other machine:** the APK files (`native-app/SiteVerify-Beta-2.0.0.apk`
 and `android/*.apk`, home machine only), the signing key folder (open item 9), `backend/.env`
@@ -49,6 +62,17 @@ OneDrive Desktop. Python 3.14.7, backend venv, `npm install`, local SQLite migra
 on this machine until the `GOOGLE_*` values are filled in from Render. Git identity is set for
 this repo only. Native app tooling (added 2026-10-05/06): JDK 17 in `C:\Users\vijay\.jdks\`, the
 Android SDK with NDK 27, and the emulator `SiteVerify_Pixel` (Android 15).
+
+**Office machine native setup (done 2026-10-09):** JDK 17 in `C:\Users\ADMIN\.jdks\`, Android SDK
+in `C:\Users\ADMIN\AppData\Local\Android\Sdk` (platform 36, build-tools 36.0.0, NDK 27.1), user
+env vars `JAVA_HOME`/`ANDROID_HOME` + PATH, emulator `SiteVerify_Pixel` (Windows Hypervisor
+Platform turned on). The office PC has 7.8 GB RAM: build the dev app for the emulator CPU only,
+from `native-app/android` in PowerShell (about 18 min the first time, quick after that):
+`.\gradlew.bat app:assembleDebug "-PreactNativeArchitectures=x86_64" "--max-workers=3"`, then
+`adb install -r app\build\outputs\apk\debug\app-debug.apk` and start Metro with
+`EXPO_PUBLIC_API_BASE=http://10.0.2.2:5000` + `npx expo start --dev-client`. **The office
+`backend/.env` has the `S3_*` values filled in**, so local uploads from the office go to the
+production photo bucket; blank them in the environment when creating test bills.
 
 ### Open items (most urgent first)
 
@@ -108,6 +132,17 @@ Android SDK with NDK 27, and the emulator `SiteVerify_Pixel` (Android 15).
    testing first, e.g. the frosted glass is tuned for Android (`intensity={1}` in
    `src/components/Frost.tsx` would show almost no blur on iPhone). Waiting on the user's decision
    (discussed 2026-10-07).
+12. **Small differences found in the 2026-10-09 side-by-side check** (none fixed yet):
+   - Native app: Cancel on the "Add a bill" sheet goes back a screen; the web goes to the project
+     page (`native-app/src/app/supervisor/projects/[projectId]/upload.tsx`, line 26). The user
+     said leave it for now.
+   - Native app: after logging out and in as someone else, the alert badge briefly shows the
+     previous user's unread count until the next poll (`src/lib/notifications.ts` keeps the count
+     across logins; the web has the same code but reloads).
+   - **Web and app: login needs the phone number typed exactly as stored, with spaces**
+     (`+91 98200 00009`); `9820000009` is rejected. Fix on the server: compare digits only.
+   - Local dev only: in the Vite dev preview, bill photos don't load from the local backend (the
+     dev service worker's `/uploads` CacheFirst rule fails the fetch). Live photos load fine.
 
 ---
 
@@ -125,7 +160,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | Skipped for now (provider undecided) |
+| 8 | OCR on bill photos | Next (Google Cloud Vision; web first, then native) |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -133,6 +168,21 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-09 — Native app set up on the office PC; full side-by-side check (office)
+
+- No code changed. Installed the native-app tooling on the office PC (see "Office machine native
+  setup" above) and built the dev app for the emulator only (x86_64), connected to the local backend.
+- Compared every screen of all three roles, native app on the emulator vs the web app (Vite dev
+  server at phone size, and the live site for the supervisor): Home, My bills, project page, Add
+  bill sheet, Alerts, Profile; accountant Home, Projects, Review queue, bill review; admin
+  Overview, Users, Projects, Bills, Profile. All match, apart from the items in open item 12 and
+  the deliberate "Version 2.0.0" on Profile.
+- Used 4 local test bills (Matched, Flagged, Pending, over-delivered) with photos on local disk
+  (S3 blanked for that run), then deleted the bills, their 7 alerts and the 4 photos. The local
+  database has 0 bills again. Two older orphan files in the office `backend/uploads/` predate this
+  session and were left alone.
+- Agreed next: OCR (see "Where we left off").
 
 ### 2026-10-07/09 — Native app merged into `main`; iPhone options (home)
 

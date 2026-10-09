@@ -7,7 +7,7 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-07 (home machine)_
+_Last updated: 2026-10-09, end of session (home machine; the user continues at the office)_
 
 **State:** everything is in `main` and pushed. The web app is live and unchanged since 2026-10-05.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
@@ -34,8 +34,14 @@ installed on a real phone yet.
 4. **Back up the Android signing key folder** (open item 9). Without it the app can never be
    updated.
 5. Decide on the free-plan sleep (open item 5), then deal with the security items 1 and 3.
-6. Later: OCR (open item 6 has the agreed plan), roadmap steps 3, 4, 7 and 8, and the iPhone build
-   of the native app (needs a Mac or EAS Build, plus an Apple Developer account).
+6. **iPhone (open item 11):** for now iPhone users add the website to their home screen. The
+   native iPhone app waits on the user getting an Apple Developer account.
+7. Later: OCR (open item 6 has the agreed plan), roadmap steps 3, 4, 7 and 8.
+
+**Not in git, so not on the other machine:** the APK files (`native-app/SiteVerify-Beta-2.0.0.apk`
+and `android/*.apk`, home machine only), the signing key folder (open item 9), `backend/.env`
+and the local `backend/siteverify.db` (each machine has its own), `node_modules` and the backend
+`.venv` (reinstall per machine), and the release-build copy at `C:\sv\native-app` (home only).
 
 **Home machine setup (done 2026-10-05):** the project is the `Sustaniq Vsite App` folder on the
 OneDrive Desktop. Python 3.14.7, backend venv, `npm install`, local SQLite migrated.
@@ -93,6 +99,15 @@ Android SDK with NDK 27, and the emulator `SiteVerify_Pixel` (Android 15).
    bills do save and send themselves when the signal returns (checked on the emulator in airplane
    mode). Fix, in both apps: keep the last project list on the device and use it when offline.
    Waiting on the user's go-ahead, since it changes behaviour.
+11. **iPhone.** An APK only installs on Android, and iPhones can't install apps from a shared file.
+   Today: iPhone users open the website in Safari → Share → Add to Home Screen (not yet checked on
+   a real iPhone). Native iPhone app, when wanted: the same `native-app/` code, plus an Apple
+   Developer account ($99/year), built with a Mac or Expo's cloud build (EAS Build, works from
+   Windows), and handed out through TestFlight (invite by email; best start for a company team),
+   an unlisted App Store listing, or Apple Business Manager. It needs iPhone-specific work and
+   testing first, e.g. the frosted glass is tuned for Android (`intensity={1}` in
+   `src/components/Frost.tsx` would show almost no blur on iPhone). Waiting on the user's decision
+   (discussed 2026-10-07).
 
 ---
 
@@ -118,6 +133,15 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-07/09 — Native app merged into `main`; iPhone options (home)
+
+- At the user's request, `native-app` was fast-forwarded into `main` (`e4a2c9b`, docs `616af02`).
+  Checked first: nothing in `frontend/`, `backend/` or `android/` changed (only `native-app/` and
+  docs), 87 backend tests pass, frontend lint and build pass, and the GitHub CI run on `main`
+  passed. The live site and the browser-based app are unaffected; Render didn't redeploy.
+- The user asked about iPhones: the APK is Android-only. Options written up as open item 11.
+- Session ended here; the user continues on the office machine.
 
 ### 2026-10-06/07 — Native mobile app (React Native + Expo), branch `native-app` (home)
 

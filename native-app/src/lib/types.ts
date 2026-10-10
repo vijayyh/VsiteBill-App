@@ -18,14 +18,34 @@ export interface ProjectSummary extends Project {
 
 export type DeliveryStatus = 'PENDING' | 'REVIEW' | 'MATCHED'
 
+/** One line of goods on a bill. */
+export interface DeliveryItem {
+  description: string
+  quantity: number | null
+  unit: string | null
+  rate: number | null
+  amount: number | null
+}
+
 export interface Delivery {
   id: number
   projectId: string
   vendor: string
+  /** The item names joined: what lists show. */
   item: string
+  items: DeliveryItem[]
   status: DeliveryStatus
   poNumber: string | null
+  invoiceNumber: string | null
+  /** YYYY-MM-DD, as printed on the bill. */
+  billDate: string | null
+  taxableAmount: number | null
+  cgst: number | null
+  sgst: number | null
+  igst: number | null
+  totalAmount: number | null
   ordered: number | null
+  /** The items' quantities added up: what the office compares with the PO. */
   delivered: number | null
   quantityLowConfidence: boolean
   note: string | null
@@ -35,6 +55,24 @@ export interface Delivery {
   driveFileId: string | null
   driveWebViewLink: string | null
   driveSyncedAt: string | null
+}
+
+/** One value a save changed. Item fields are "items.2.quantity"; a whole row added or removed is "items.2". */
+export interface BillChange {
+  field: string
+  from: string | number | null
+  to: string | number | null
+}
+
+/** One save of a bill (GET /api/deliveries/<id>/changes; office and admin only). */
+export interface BillHistoryEntry {
+  id: number
+  /** "sent": the supervisor sending it, with what they changed from the photo reading. "edited": an office save. */
+  action: 'sent' | 'edited'
+  fromReading: boolean
+  changes: BillChange[]
+  by: { name: string; role: Role }
+  at: string
 }
 
 export interface AdminUser {

@@ -1,7 +1,9 @@
-import { Redirect, router, useLocalSearchParams } from 'expo-router'
+import { Redirect, router, useLocalSearchParams, usePathname } from 'expo-router'
 import { useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import { AuthImage } from '../../../../../components/AuthImage'
+import { BillHistory } from '../../../../../components/BillHistory'
+import { AmountsCard, DateField, ItemsEditor, MarkedLabel, NumberField, ReadMark, SectionLabel } from '../../../../../components/BillParts'
 import { StatusBadge } from '../../../../../components/bills'
 import { ActionBar, Frost, FrostBackdrop, FrostScope } from '../../../../../components/Frost'
 import { SCREEN_HEADER_HEIGHT, ScreenHeader } from '../../../../../components/headers'
@@ -11,25 +13,46 @@ import { PageBackground, Screen } from '../../../../../components/Screen'
 import { T } from '../../../../../components/T'
 import { Card, Field, PrimaryButton, SecondaryButton, Tap } from '../../../../../components/ui'
 import { api, ApiError, useApiGet } from '../../../../../lib/api'
-import { formatDateTime } from '../../../../../lib/format'
+import {
+  AMOUNT_FIELDS,
+  amountsFromDelivery,
+  editedFields,
+  emptyAmounts,
+  emptyRow,
+  itemsPayload,
+  missingItemDetails,
+  rowFromItem,
+  sameValue,
+  totalQuantity,
+  type Amounts,
+  type ItemRow,
+  type Mark,
+} from '../../../../../lib/bill'
+import { formatDateTime, formatQty } from '../../../../../lib/format'
 import { colors, fonts, glassStrong, radii, ring } from '../../../../../lib/theme'
-import type { Delivery, Project } from '../../../../../lib/types'
+import type { BillHistoryEntry, Delivery, Project } from '../../../../../lib/types'
 
 // Same as the web app's bill review (frontend/src/screens/accountant/ReviewDelivery.tsx). Back and
-// save return to wherever the bill was opened from (Home, the Review queue, Alerts or the gallery).
+// save return to wherever the bill was opened from (Home, the Review queue, Alerts or the gallery;
+// for an admin, the Bills list).
 export default function ReviewDelivery() {
   const { projectId = '', deliveryId = '' } = useLocalSearchParams<{ projectId: string; deliveryId: string }>()
+  const isAdmin = usePathname().startsWith('/admin')
   const projectQuery = useApiGet<{ project: Project }>(`/api/projects/${projectId}`)
   const deliveryQuery = useApiGet<{ delivery: Delivery }>(`/api/deliveries/${deliveryId}`)
+  const historyQuery = useApiGet<{ changes: BillHistoryEntry[] }>(`/api/deliveries/${deliveryId}/changes`)
 
   const [vendor, setVendor] = useState('')
-  const [item, setItem] = useState('')
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [billDate, setBillDate] = useState('')
   const [orderedQty, setOrderedQty] = useState('')
-  const [quantity, setQuantity] = useState('')
   const [poNumber, setPoNumber] = useState('')
+  const [rows, setRows] = useState<ItemRow[]>([emptyRow()])
+  const [amounts, setAmounts] = useState<Amounts>(emptyAmounts)
   const [note, setNote] = useState('')
   const [noteFocused, setNoteFocused] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [savingToDrive, setSavingToDrive] = useState(false)
@@ -38,21 +61,24 @@ export default function ReviewDelivery() {
 
   const delivery = deliveryQuery.data?.delivery
   const project = projectQuery.data?.project
-  const back = () => (router.canGoBack() ? router.back() : router.replace(`/accountant/projects/${projectId}/gallery`))
+  const back = () =>
+    router.canGoBack() ? router.back() : router.replace(isAdmin ? '/admin/deliveries' : `/accountant/projects/${projectId}/gallery`)
 
   // Fill the form when a bill loads — only a different bill, not a refresh after "Save to Drive".
   const [formFor, setFormFor] = useState<number | null>(null)
   if (delivery && delivery.id !== formFor) {
     setFormFor(delivery.id)
     setVendor(delivery.vendor)
-    setItem(delivery.item)
+    setInvoiceNumber(delivery.invoiceNumber ?? '')
+    setBillDate(delivery.billDate ?? '')
     setOrderedQty(delivery.ordered != null ? String(delivery.ordered) : '')
-    setQuantity(delivery.delivered != null ? String(delivery.delivered) : '')
     setPoNumber(delivery.poNumber ?? '')
+    setRows(delivery.items.length > 0 ? delivery.items.map(rowFromItem) : [emptyRow()])
+    setAmounts(amountsFromDelivery(delivery))
     setNote(delivery.note ?? '')
   }
 
-  if (projectQuery.error || deliveryQuery.error) return <Redirect href="/accountant" />
+  if (projectQuery.error || deliveryQuery.error) return <Redirect href={isAdmin ? '/admin' : '/accountant'} />
   if (!delivery || !project) {
     return (
       <Screen>
@@ -66,16 +92,26 @@ export default function ReviewDelivery() {
     )
   }
 
+  // EDITED marks: a value changed on this screen (from what's saved), or by an earlier save
+  // (supervisor's changes from the photo reading, the office's edits) as the history records.
+  const earlier = editedFields(historyQuery.data?.changes ?? [])
+  function markFor(field: string, value: string, saved: string): Mark | undefined {
+    return !sameValue(value, saved) || earlier.has(field) ? 'edited' : undefined
+  }
+  const savedAmounts = amountsFromDelivery(delivery)
+  const amountMarks = Object.fromEntries(AMOUNT_FIELDS.map(({ key }) => [key, markFor(key, amounts[key], savedAmounts[key])]))
+
+  // What was delivered is the items' quantities added up.
+  const deliveredTotal = totalQuantity(rows)
   const ordered = Number(orderedQty) || 0
-  const delivered = Number(quantity) || 0
-  const diff = ordered - delivered
+  const delivered = deliveredTotal ?? 0
+  const diff = Math.round((ordered - delivered) * 1000) / 1000
   const hasDiscrepancy = diff !== 0
 
   const missingFields: string[] = []
   if (!vendor.trim()) missingFields.push('vendor')
-  if (!item.trim()) missingFields.push('item description')
+  missingFields.push(...missingItemDetails(rows))
   if (!orderedQty.trim()) missingFields.push('ordered quantity')
-  if (!quantity.trim()) missingFields.push('delivered quantity')
   if (!poNumber.trim()) missingFields.push('PO number')
 
   async function saveToDrive() {
@@ -97,24 +133,28 @@ export default function ReviewDelivery() {
       return
     }
     setSaving(true)
+    setSaveError(null)
     try {
       await api.patch(`/api/deliveries/${deliveryId}`, {
         vendor,
-        item,
+        items: itemsPayload(rows),
         ordered: orderedQty === '' ? null : Number(orderedQty),
-        delivered: quantity === '' ? null : Number(quantity),
         poNumber,
+        invoiceNumber,
+        billDate,
+        ...amounts,
         note,
         status,
       })
       back()
-    } catch {
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Could not save. Check your connection and try again.')
       setSaving(false)
     }
   }
 
   // Until the PO's ordered quantity is entered there's nothing to compare against.
-  const comparable = orderedQty.trim() !== '' && quantity.trim() !== ''
+  const comparable = orderedQty.trim() !== '' && deliveredTotal !== null
   const tone = !comparable
     ? { text: colors.inkMuted, bg: 'rgba(255,255,255,0.8)' }
     : hasDiscrepancy
@@ -203,7 +243,7 @@ export default function ReviewDelivery() {
                 <View style={styles.compare}>
                   {[
                     { label: 'Ordered', value: orderedQty.trim() ? String(ordered) : '—', color: colors.ink },
-                    { label: 'Delivered', value: quantity.trim() ? String(delivered) : '—', color: colors.ink },
+                    { label: 'Delivered', value: deliveredTotal !== null ? formatQty(delivered) : '—', color: colors.ink },
                     {
                       label: !comparable ? 'Difference' : diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference',
                       value: comparable ? String(Math.abs(diff)) : '—',
@@ -223,67 +263,82 @@ export default function ReviewDelivery() {
               </Card>
 
               <View>
-                <T size={12} weight={700} color={colors.inkMuted} style={styles.sectionLabel}>
-                  Bill details
-                </T>
+                <SectionLabel title="Bill" />
                 <View style={{ gap: 14 }}>
-                  <Field label="Vendor" invalid={showErrors && !vendor.trim()} value={vendor} onChangeText={setVendor} />
-                  <Field label="Item description" invalid={showErrors && !item.trim()} value={item} onChangeText={setItem} />
+                  <Field
+                    label={<MarkedLabel label="Vendor" mark={markFor('vendor', vendor, delivery.vendor)} />}
+                    invalid={showErrors && !vendor.trim()}
+                    value={vendor}
+                    onChangeText={setVendor}
+                  />
                   <View style={{ flexDirection: 'row', gap: 12 }}>
                     <Field
                       style={{ flex: 1 }}
-                      label="Ordered qty"
-                      keyboardType="decimal-pad"
-                      invalid={showErrors && !orderedQty.trim()}
-                      value={orderedQty}
-                      onChangeText={setOrderedQty}
+                      label={<MarkedLabel label="Bill no." mark={markFor('invoiceNumber', invoiceNumber, delivery.invoiceNumber ?? '')} />}
+                      value={invoiceNumber}
+                      onChangeText={setInvoiceNumber}
                     />
-                    <Field
+                    <DateField
                       style={{ flex: 1 }}
-                      label={
-                        <>
-                          <T size={12} weight={600} color={colors.label}>
-                            Delivered qty
-                          </T>
-                          {delivery.quantityLowConfidence ? (
-                            <View style={styles.doubleCheck}>
-                              <T size={9} weight={700} color={colors.warningText}>
-                                DOUBLE-CHECK
-                              </T>
-                            </View>
-                          ) : null}
-                        </>
-                      }
-                      keyboardType="decimal-pad"
-                      invalid={delivery.quantityLowConfidence || (showErrors && !quantity.trim())}
-                      value={quantity}
-                      onChangeText={setQuantity}
+                      label={<MarkedLabel label="Bill date" mark={markFor('billDate', billDate, delivery.billDate ?? '')} />}
+                      value={billDate}
+                      onChange={setBillDate}
                     />
                   </View>
-                  <Field label="PO number" invalid={showErrors && !poNumber.trim()} value={poNumber} onChangeText={setPoNumber} />
-                  {/* The 6.4 px under it is the space a browser leaves under a textarea. */}
-                  <View style={{ marginBottom: 6.4 }}>
-                    <T size={12} weight={600} color={colors.label} style={{ marginBottom: 6, marginLeft: 12 }}>
-                      Note (optional)
-                    </T>
-                    {/* Outline on a wrapper: changing it on the TextInput itself makes Android drop its padding. */}
-                    <View style={[glassStrong, styles.noteFrame, noteFocused && styles.noteFocused]}>
-                      <TextInput
-                        multiline
-                        numberOfLines={2}
-                        placeholder="e.g. Short by 10 bags — vendor to send the remainder"
-                        placeholderTextColor={colors.inkFaint}
-                        value={note}
-                        onChangeText={setNote}
-                        onFocus={() => setNoteFocused(true)}
-                        onBlur={() => setNoteFocused(false)}
-                        underlineColorAndroid="transparent"
-                        style={styles.note}
-                      />
-                    </View>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <Field
+                      style={{ flex: 1 }}
+                      label={<MarkedLabel label="PO number" mark={markFor('poNumber', poNumber, delivery.poNumber ?? '')} />}
+                      invalid={showErrors && !poNumber.trim()}
+                      value={poNumber}
+                      onChangeText={setPoNumber}
+                    />
+                    <NumberField
+                      style={{ flex: 1 }}
+                      label={
+                        <MarkedLabel
+                          label="Ordered qty"
+                          mark={markFor('ordered', orderedQty, delivery.ordered != null ? String(delivery.ordered) : '')}
+                        />
+                      }
+                      invalid={showErrors && !orderedQty.trim()}
+                      value={orderedQty}
+                      onChange={setOrderedQty}
+                    />
                   </View>
                 </View>
               </View>
+
+              <ItemsEditor rows={rows} onChange={setRows} showErrors={showErrors} flagged={delivery.quantityLowConfidence} editedFields={earlier} />
+
+              <AmountsCard amounts={amounts} marks={amountMarks} onChange={(key, value) => setAmounts((before) => ({ ...before, [key]: value }))} />
+
+              {/* The 6.4 px under it is the space a browser leaves under a textarea. */}
+              <View style={{ marginBottom: 6.4 }}>
+                <View style={styles.noteLabel}>
+                  <T size={12} weight={600} color={colors.label}>
+                    Note (optional)
+                  </T>
+                  <ReadMark mark={markFor('note', note, delivery.note ?? '')} />
+                </View>
+                {/* Outline on a wrapper: changing it on the TextInput itself makes Android drop its padding. */}
+                <View style={[glassStrong, styles.noteFrame, noteFocused && styles.noteFocused]}>
+                  <TextInput
+                    multiline
+                    numberOfLines={2}
+                    placeholder="e.g. Short by 10 bags — vendor to send the remainder"
+                    placeholderTextColor={colors.inkFaint}
+                    value={note}
+                    onChangeText={setNote}
+                    onFocus={() => setNoteFocused(true)}
+                    onBlur={() => setNoteFocused(false)}
+                    underlineColorAndroid="transparent"
+                    style={styles.note}
+                  />
+                </View>
+              </View>
+
+              <BillHistory history={historyQuery.data?.changes} />
             </ScrollView>
           </FrostBackdrop>
 
@@ -291,6 +346,11 @@ export default function ReviewDelivery() {
             {showErrors && missingFields.length > 0 ? (
               <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
                 Fill in {missingFields.join(', ')} before confirming a match.
+              </T>
+            ) : null}
+            {saveError ? (
+              <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
+                {saveError}
               </T>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -345,8 +405,7 @@ const styles = StyleSheet.create({
   },
   compareCell: { flex: 1, paddingVertical: 10 },
   compareDivider: { borderLeftWidth: 1, borderLeftColor: 'rgba(0,0,0,0.06)' },
-  sectionLabel: { textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 10, marginLeft: 4 },
-  doubleCheck: { backgroundColor: colors.warningBg, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
+  noteLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, marginLeft: 12 },
   note: {
     backgroundColor: 'transparent',
     paddingHorizontal: 16,

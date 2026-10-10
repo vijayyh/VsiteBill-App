@@ -119,6 +119,8 @@ Native equivalents, not changes in what the app does:
 - **Take a photo** opens the phone's own camera app; **Choose from gallery** opens the system photo
   picker. Photos are shrunk on the phone before upload, as on the web.
 - **Dropdowns** (role, Shared Drive) open a native option sheet instead of Chrome's select dialog.
+- **Bill date** opens the phone's own date picker (`@react-native-community/datetimepicker`, a
+  native module: adding it needed a new build), like the web's date field does in Chrome.
 - **Profile** shows the app version (`Version 2.0.0`) instead of the website's build date.
 - **Saved offline**: after "Send to office" with no signal, the app shows "Saved on this phone"
   even though it can't load the project name; the website goes back to Home in that case.

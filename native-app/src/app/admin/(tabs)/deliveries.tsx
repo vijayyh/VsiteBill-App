@@ -1,3 +1,4 @@
+import { router } from 'expo-router'
 import { useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { AdminShell } from '../../../components/AdminShell'
@@ -57,7 +58,13 @@ export default function AdminDeliveries() {
             <Tap onPress={() => bill.photoUrl && setViewerSrc(bill.photoUrl)} accessibilityLabel="View bill photo" style={styles.thumb}>
               {bill.photoUrl ? <AuthImage src={bill.photoUrl} /> : null}
             </Tap>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <Tap
+              onPress={() =>
+                router.push({ pathname: '/admin/projects/[projectId]/review/[deliveryId]', params: { projectId: bill.projectId, deliveryId: String(bill.id) } })
+              }
+              accessibilityLabel={`Open the bill from ${bill.vendor || 'unknown vendor'}`}
+              style={{ flex: 1, minWidth: 0 }}
+            >
               <BillSummary
                 vendor={bill.vendor}
                 item={`${bill.project.code} · ${bill.item || 'No item description'}`}
@@ -70,7 +77,7 @@ export default function AdminDeliveries() {
                 timestamp={bill.uploadedAt}
                 inDrive={!!bill.driveFileId}
               />
-            </View>
+            </Tap>
           </View>
         ))}
       </View>

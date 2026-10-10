@@ -12,9 +12,41 @@ import { api, ApiError } from './api'
 
 export interface QueuedUploadDetails {
   vendor: string
+  /** The item names joined, and their quantities added up (what the waiting card shows). */
   item: string
   delivered: string
   poNumber: string
+  /** The goods rows, as JSON text (see bill.ts). Missing on bills queued before items existed. */
+  items?: string
+  invoiceNumber?: string
+  billDate?: string
+  taxableAmount?: string
+  cgst?: string
+  sgst?: string
+  igst?: string
+  totalAmount?: string
+  /** The photo reading the form was filled in from, if any (see readBill.ts). */
+  ocrScanId?: number
+}
+
+/** The details beyond the first four, kept together as JSON in the queue's `details` column. */
+const OPTIONAL_DETAILS = [
+  'items',
+  'invoiceNumber',
+  'billDate',
+  'taxableAmount',
+  'cgst',
+  'sgst',
+  'igst',
+  'totalAmount',
+] as const
+type ExtraDetails = Partial<Pick<QueuedUploadDetails, (typeof OPTIONAL_DETAILS)[number] | 'ocrScanId'>>
+
+function extraDetails(details: QueuedUploadDetails): ExtraDetails {
+  const extra: ExtraDetails = {}
+  for (const key of OPTIONAL_DETAILS) if (details[key]) extra[key] = details[key]
+  if (details.ocrScanId) extra.ocrScanId = details.ocrScanId
+  return extra
 }
 
 export interface QueuedUpload extends QueuedUploadDetails {
@@ -36,6 +68,7 @@ interface Row {
   delivered: string
   po_number: string
   created_at: string
+  details: string | null
 }
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null
@@ -59,10 +92,23 @@ function getDb() {
         );
         CREATE INDEX IF NOT EXISTS pending_uploads_project ON pending_uploads (project_id);
       `)
+      // Added with the items table and amounts: a phone may still hold bills queued before then.
+      const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(pending_uploads)')
+      if (!columns.some((column) => column.name === 'details')) {
+        await db.execAsync('ALTER TABLE pending_uploads ADD COLUMN details TEXT')
+      }
       return db
     })()
   }
   return dbPromise
+}
+
+function parseDetails(text: string | null): ExtraDetails {
+  try {
+    return text ? (JSON.parse(text) as ExtraDetails) : {}
+  } catch {
+    return {}
+  }
 }
 
 const toUpload = (row: Row): QueuedUpload => ({
@@ -75,6 +121,7 @@ const toUpload = (row: Row): QueuedUpload => ({
   delivered: row.delivered,
   poNumber: row.po_number,
   createdAt: row.created_at,
+  ...parseDetails(row.details),
 })
 
 type Listener = () => void
@@ -120,9 +167,20 @@ export async function queueUpload(
     ...details,
   }
   await db.runAsync(
-    `INSERT INTO pending_uploads (id, project_id, file_uri, filename, vendor, item, delivered, po_number, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, projectId, record.uri, filename, details.vendor, details.item, details.delivered, details.poNumber, record.createdAt],
+    `INSERT INTO pending_uploads (id, project_id, file_uri, filename, vendor, item, delivered, po_number, created_at, details)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      id,
+      projectId,
+      record.uri,
+      filename,
+      details.vendor,
+      details.item,
+      details.delivered,
+      details.poNumber,
+      record.createdAt,
+      JSON.stringify(extraDetails(details)),
+    ],
   )
   notifyListeners()
   return record
@@ -160,6 +218,11 @@ export function billForm(photoUri: string, filename: string, details: QueuedUplo
   form.append('item', details.item)
   form.append('delivered', details.delivered)
   form.append('poNumber', details.poNumber)
+  for (const key of OPTIONAL_DETAILS) {
+    const value = details[key]
+    if (value) form.append(key, value)
+  }
+  if (details.ocrScanId) form.append('ocrScanId', String(details.ocrScanId))
   return form
 }
 

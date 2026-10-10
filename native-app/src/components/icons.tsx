@@ -87,6 +87,35 @@ export function IconClose(props: IconProps) {
   )
 }
 
+export function IconCalendar(props: IconProps) {
+  return (
+    <Svg {...base(props)}>
+      <Rect x="3" y="4" width="18" height="18" rx="2" />
+      <Line x1="16" y1="2" x2="16" y2="6" />
+      <Line x1="8" y1="2" x2="8" y2="6" />
+      <Line x1="3" y1="10" x2="21" y2="10" />
+    </Svg>
+  )
+}
+
+export function IconPencil(props: IconProps) {
+  return (
+    <Svg {...base(props)}>
+      <Path d="M12 20h9" />
+      <Path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </Svg>
+  )
+}
+
+export function IconPlus(props: IconProps) {
+  return (
+    <Svg {...base(props)}>
+      <Line x1="12" y1="5" x2="12" y2="19" />
+      <Line x1="5" y1="12" x2="19" y2="12" />
+    </Svg>
+  )
+}
+
 export function IconCheck(props: IconProps) {
   return (
     <Svg {...base(props)}>

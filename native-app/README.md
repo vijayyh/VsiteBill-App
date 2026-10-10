@@ -79,8 +79,15 @@ $env:ORG_GRADLE_PROJECT_SITEVERIFY_KEY_ALIAS = '<alias from PASSWORD.txt>'
 $env:ORG_GRADLE_PROJECT_SITEVERIFY_STORE_PASSWORD = '<password from PASSWORD.txt>'
 $env:ORG_GRADLE_PROJECT_SITEVERIFY_KEY_PASSWORD = '<password from PASSWORD.txt>'
 cd C:\sv\native-app\android
-.\gradlew.bat assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process -Porg.gradle.parallel=false
+.\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process -Porg.gradle.parallel=false
 ```
+
+   **Phone APKs are built for `arm64-v8a` only** (every phone from roughly the last eight years):
+   about half the size of an APK with all three chip types (94 MB). Add `armeabi-v7a` only if
+   someone has a very old 32-bit phone; `x86_64` is only for the emulator and Chromebooks. The
+   x86_64 emulator can't run an arm64-only APK: its ARM translation makes React Native mix x86
+   and ARM libraries and crash (checked 2026-10-11: even the all-chips APK crashes when forced to
+   ARM). Test on the emulator with the debug build or an APK that includes `x86_64`.
 
 4. The APK is `android\app\build\outputs\apk\release\app-release.apk`. Copy it back as
    `native-app\SiteVerify-Beta-<version>.apk` (`*.apk` is git-ignored) and share it from there.
@@ -92,7 +99,7 @@ Don't set `EXPO_PUBLIC_API_BASE` for a release build: it must use the live API.
 | Version | Code | Variant | Notes |
 |---|---|---|---|
 | 2.0.0 | 100 | beta | First native build (2026-10-07), 94 MB, signed with the SiteVerify key |
-| 2.1.0 | 101 | beta | Bill reading (OCR), items table, amounts, EDITED marks, History, date picker (2026-10-11) |
+| 2.1.0 | 101 | beta | Bill reading (OCR), items table, amounts, EDITED marks, History, date picker (2026-10-11). 50 MB, arm64 only (`SiteVerify-Beta-2.1.0-all-chips.apk`, 94 MB, has all three) |
 
 ## Signing
 

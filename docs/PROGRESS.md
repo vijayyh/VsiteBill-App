@@ -26,8 +26,9 @@ and look at Render's GitHub connection (Account settings → Git providers).
    Vision key in Render is a **fresh** one (the key pasted into chat on 2026-10-10 must be deleted
    in Google Cloud).
 2. The browser APK (`android/`) shows the live site, so it has the new form already: check on a phone.
-3. **Native app 2.1.0 is in `main` and built**: `native-app/SiteVerify-Beta-2.1.0.apk` (home
-   machine only; APKs aren't in git). Install it on a phone: it updates SiteVerify Beta 2.0.0 (or
+3. **Native app 2.1.0 is in `main` and built**: `native-app/SiteVerify-Beta-2.1.0.apk`, 50 MB,
+   for modern (arm64) phones; `SiteVerify-Beta-2.1.0-all-chips.apk` (94 MB) also runs on very old
+   32-bit phones (home machine only; APKs aren't in git). Install it on a phone: it updates SiteVerify Beta 2.0.0 (or
    installs next to the current app) and uses the live server. Check bill reading, the items
    table, amounts and the History on a real phone.
 
@@ -192,6 +193,12 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   replaced. Reinstall the debug APK from `C:\sv\native-app\android\app\build\outputs\apk\debug`
   (or `npx expo run:android`) before testing against the local backend again.
 - The branch `ocr-bill-reading` is fully merged and can be deleted.
+- At the user's request, rebuilt for modern phones only (`-PreactNativeArchitectures=arm64-v8a`):
+  50 MB instead of 94 MB. Same 25 ARM libraries and same app code as the all-chips APK
+  (checksums match). It can't be run on the x86_64 emulator (ARM translation makes React Native
+  crash; the all-chips APK forced to ARM crashes the same way), so it's unchecked on a device
+  until a real phone. The all-chips APK is kept as `SiteVerify-Beta-2.1.0-all-chips.apk`. The
+  emulator has the debug build installed again.
 
 ### 2026-10-10 (later) — Pushed to `main`; native app twin (home)
 

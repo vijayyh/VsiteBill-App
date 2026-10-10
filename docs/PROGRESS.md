@@ -9,22 +9,21 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-10 (home machine)_
 
-**OCR, bill items and the change history are built, on the branch `ocr-bill-reading`** (pushed;
-`main` is untouched, so the live site hasn't changed). On the other machine:
-`git fetch` then `git switch ocr-bill-reading`, then `flask db upgrade` in `backend/` (two new
-migrations). See the 2026-10-10 session log entry for what's in it.
+**OCR, bill items and the change history are live on the web app** (pushed to `main` on
+2026-10-10, at the user's go-ahead, after the upgrade was rehearsed on a throwaway Postgres).
+On the other machine: `git pull`, then `flask db upgrade` in `backend/` (two new migrations).
+See the 2026-10-10 session log entry for what's in it.
 
 **Next:**
-1. The user checks the branch. When they're happy: merge it into `main` (that deploys it).
-   Before or at that point, in Render → vsitebill-api → Environment add `GOOGLE_VISION_API_KEY`
-   (a **fresh** key restricted to the Cloud Vision API; the key pasted into chat on 2026-10-10
-   must be deleted in Google Cloud). Without the key the live form just isn't filled in
-   automatically; everything else works.
-2. Then the browser APK (`android/`) gets it automatically (it shows the live site): check on a phone.
-3. Then the **native app twin** (`native-app/`): OCR filling, the items table, amounts, EDITED
-   marks, number-only boxes and the History section, as in the web app. Not started.
+1. **Render → vsitebill-api → Environment: add `GOOGLE_VISION_API_KEY`** (a **fresh** key
+   restricted to the Cloud Vision API; the key pasted into chat on 2026-10-10 must be deleted in
+   Google Cloud). Until then the live form just isn't filled in automatically; everything else works.
+2. The browser APK (`android/`) shows the live site, so it has the new form already: check on a phone.
+3. The **native app twin** (`native-app/`) is in progress on the branch `ocr-bill-reading`: OCR
+   filling, items, amounts, EDITED marks, number-only boxes, History, date picker (a new native
+   module, `@react-native-community/datetimepicker`, so a new build). Not merged yet.
 
-**State:** `main` is pushed and live, unchanged since 2026-10-05 apart from the native app.
+**State:** `main` is pushed and live.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
 own top-level `native-app/` folder; nothing outside that folder changed except docs. It is not
 installed on a real phone yet.
@@ -97,7 +96,7 @@ production photo bucket; blank them in the environment when creating test bills.
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
    `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
    pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
-6. **OCR: built 2026-10-10 on branch `ocr-bill-reading`** (web app; native app still to do). The
+6. **OCR: live on the web app since 2026-10-10** (native app in progress). The
    original plan, kept for reference. Goal: when a supervisor photographs a bill, the
    vendor / item / quantity / PO fields fill themselves in. Plan:
    - Run OCR **on the server** behind a swappable `extract(photo)` function (e.g.
@@ -163,7 +162,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | Web app built 2026-10-10 on branch `ocr-bill-reading`, not merged yet; native next |
+| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app in progress |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -172,7 +171,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
 
-### 2026-10-10 — OCR, bills with many items, change history (home, branch `ocr-bill-reading`)
+### 2026-10-10 — OCR, bills with many items, change history (home; live on `main`)
 
 - **Reading bills (OCR):** `backend/siteverify/ocr.py` sends the photo to Google Cloud Vision
   (`GOOGLE_VISION_API_KEY`) and parses: vendor ("Sold By", the big name at the top, or the
@@ -204,7 +203,10 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   sample bills read, sent, edited by the office, flagged; history seen as office and as admin;
   the offline queue sends items and amounts. All test bills, readings, alerts, history rows and
   photos deleted afterwards. 137 backend tests pass; frontend lint and build clean.
-- Not done: the native app twin; the Render key (see "Where we left off").
+- Before going live, rehearsed the upgrade on a throwaway local Postgres 17 (psycopg2, as on
+  Render): old bills became one item row each; sending, office edits and the history all worked.
+  Then pushed to `main` at the user's go-ahead.
+- Not done: the native app twin (in progress on the branch); the Render key (see "Where we left off").
 
 ### 2026-10-09 — Native app set up on the office PC; full side-by-side check (office)
 

@@ -1,12 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
+import { AmountsCard, ItemsEditor, SectionLabel } from '../../components/BillParts'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Card, Field, btnPrimary, btnSecondary } from '../../components/ui'
 import { IconAlertTriangle, IconCamera, IconCheck, IconClipboardCheck, IconCloud } from '../../components/icons'
 import { api, ApiError, useApiGet } from '../../lib/api'
+import {
+  amountsFromDelivery,
+  emptyAmounts,
+  emptyRow,
+  itemsPayload,
+  missingItemDetails,
+  rowFromItem,
+  totalQuantity,
+  type Amounts,
+  type ItemRow,
+} from '../../lib/bill'
 import { formatDateTime } from '../../lib/format'
 import type { Delivery, Project } from '../../lib/types'
 
@@ -26,12 +38,15 @@ export function ReviewDelivery() {
   const navigate = useNavigate()
 
   const [vendor, setVendor] = useState('')
-  const [item, setItem] = useState('')
+  const [invoiceNumber, setInvoiceNumber] = useState('')
+  const [billDate, setBillDate] = useState('')
   const [orderedQty, setOrderedQty] = useState('')
-  const [quantity, setQuantity] = useState('')
   const [poNumber, setPoNumber] = useState('')
+  const [rows, setRows] = useState<ItemRow[]>([emptyRow()])
+  const [amounts, setAmounts] = useState<Amounts>(emptyAmounts)
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [savingToDrive, setSavingToDrive] = useState(false)
@@ -43,10 +58,12 @@ export function ReviewDelivery() {
   useEffect(() => {
     if (!delivery) return
     setVendor(delivery.vendor)
-    setItem(delivery.item)
+    setInvoiceNumber(delivery.invoiceNumber ?? '')
+    setBillDate(delivery.billDate ?? '')
     setOrderedQty(delivery.ordered != null ? String(delivery.ordered) : '')
-    setQuantity(delivery.delivered != null ? String(delivery.delivered) : '')
     setPoNumber(delivery.poNumber ?? '')
+    setRows(delivery.items.length > 0 ? delivery.items.map(rowFromItem) : [emptyRow()])
+    setAmounts(amountsFromDelivery(delivery))
     setNote(delivery.note ?? '')
   }, [delivery])
 
@@ -60,16 +77,17 @@ export function ReviewDelivery() {
     )
   }
 
+  // What was delivered is the items' quantities added up.
+  const deliveredTotal = totalQuantity(rows)
   const ordered = Number(orderedQty) || 0
-  const delivered = Number(quantity) || 0
-  const diff = ordered - delivered
+  const delivered = deliveredTotal ?? 0
+  const diff = Math.round((ordered - delivered) * 1000) / 1000
   const hasDiscrepancy = diff !== 0
 
   const missingFields: string[] = []
   if (!vendor.trim()) missingFields.push('vendor')
-  if (!item.trim()) missingFields.push('item description')
+  missingFields.push(...missingItemDetails(rows))
   if (!orderedQty.trim()) missingFields.push('ordered quantity')
-  if (!quantity.trim()) missingFields.push('delivered quantity')
   if (!poNumber.trim()) missingFields.push('PO number')
 
   async function saveToDrive() {
@@ -92,24 +110,28 @@ export function ReviewDelivery() {
     }
 
     setSaving(true)
+    setSaveError(null)
     try {
       await api.patch(`/api/deliveries/${deliveryId}`, {
         vendor,
-        item,
+        items: itemsPayload(rows),
         ordered: orderedQty === '' ? null : Number(orderedQty),
-        delivered: quantity === '' ? null : Number(quantity),
         poNumber,
+        invoiceNumber,
+        billDate,
+        ...amounts,
         note,
         status,
       })
       navigate(backTo)
-    } catch {
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : 'Could not save. Check your connection and try again.')
       setSaving(false)
     }
   }
 
   // Until the PO's ordered quantity is entered there's nothing to compare against.
-  const comparable = orderedQty.trim() !== '' && quantity.trim() !== ''
+  const comparable = orderedQty.trim() !== '' && deliveredTotal !== null
   const tone = !comparable
     ? { text: 'text-ink-muted', bg: 'bg-white/80', stroke: 'var(--color-ink-muted)' }
     : hasDiscrepancy
@@ -203,7 +225,7 @@ export function ReviewDelivery() {
             </div>
             <div className="py-2.5">
               <div className="text-[11px] text-ink-muted">Delivered</div>
-              <div className="text-[20px] font-bold leading-tight mt-0.5">{quantity.trim() ? delivered : '—'}</div>
+              <div className="text-[20px] font-bold leading-tight mt-0.5">{deliveredTotal !== null ? delivered : '—'}</div>
             </div>
             <div className="py-2.5">
               <div className={`text-[11px] ${tone.text}`}>
@@ -217,7 +239,7 @@ export function ReviewDelivery() {
         </Card>
 
         <div>
-          <div className="text-[12px] font-bold text-ink-muted uppercase tracking-wide mb-2.5 ml-1">Bill details</div>
+          <SectionLabel title="Bill" />
           <div className="flex flex-col gap-3.5">
             <Field
               id="vendor"
@@ -226,61 +248,46 @@ export function ReviewDelivery() {
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
             />
-            <Field
-              id="item"
-              label="Item description"
-              invalid={showErrors && !item.trim()}
-              value={item}
-              onChange={(e) => setItem(e.target.value)}
-            />
+            <div className="grid grid-cols-2 gap-3">
+              <Field id="invoice-number" label="Bill no." value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
+              <Field id="bill-date" label="Bill date" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field
+                id="po"
+                label="PO number"
+                invalid={showErrors && !poNumber.trim()}
+                value={poNumber}
+                onChange={(e) => setPoNumber(e.target.value)}
+              />
+              <Field
                 id="ordered-qty"
-                label="Ordered qty"
+                label="Ordered qty (PO)"
                 inputMode="decimal"
                 invalid={showErrors && !orderedQty.trim()}
                 value={orderedQty}
                 onChange={(e) => setOrderedQty(e.target.value)}
               />
-              <Field
-                id="qty"
-                label={
-                  <>
-                    Delivered qty
-                    {delivery.quantityLowConfidence && (
-                      <span className="text-[9px] font-bold text-warning-text bg-warning-bg rounded px-[5px] py-px">
-                        DOUBLE-CHECK
-                      </span>
-                    )}
-                  </>
-                }
-                inputMode="decimal"
-                invalid={delivery.quantityLowConfidence || (showErrors && !quantity.trim())}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-            <Field
-              id="po"
-              label="PO number"
-              invalid={showErrors && !poNumber.trim()}
-              value={poNumber}
-              onChange={(e) => setPoNumber(e.target.value)}
-            />
-            <div>
-              <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 block" htmlFor="note">
-                Note (optional)
-              </label>
-              <textarea
-                id="note"
-                rows={2}
-                placeholder="e.g. Short by 10 bags — vendor to send the remainder"
-                className="w-full rounded-[16px] glass-strong px-4 py-3 text-[13.5px] text-ink placeholder:text-ink-faint resize-none outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
             </div>
           </div>
+        </div>
+
+        <ItemsEditor rows={rows} onChange={setRows} showErrors={showErrors} flagged={delivery.quantityLowConfidence} />
+
+        <AmountsCard amounts={amounts} onChange={(key, value) => setAmounts((current) => ({ ...current, [key]: value }))} />
+
+        <div>
+          <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 block" htmlFor="note">
+            Note (optional)
+          </label>
+          <textarea
+            id="note"
+            rows={2}
+            placeholder="e.g. Short by 10 bags — vendor to send the remainder"
+            className="w-full rounded-[16px] glass-strong px-4 py-3 text-[13.5px] text-ink placeholder:text-ink-faint resize-none outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </div>
       </div>
 
@@ -291,6 +298,7 @@ export function ReviewDelivery() {
               Fill in {missingFields.join(', ')} before confirming a match.
             </div>
           )}
+          {saveError && <div className="text-[12px] font-semibold text-warning-text text-center pt-1">{saveError}</div>}
           <div className="flex gap-2">
             <button
               onClick={() => save('REVIEW')}

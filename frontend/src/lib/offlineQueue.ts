@@ -4,9 +4,48 @@ import { api, ApiError } from './api'
 
 export interface QueuedUploadDetails {
   vendor: string
+  /** The item names joined, and their quantities added up (what the waiting card shows). */
   item: string
   delivered: string
   poNumber: string
+  /** The goods rows, as JSON text (see bill.ts). Missing on bills queued before items existed. */
+  items?: string
+  invoiceNumber?: string
+  billDate?: string
+  taxableAmount?: string
+  cgst?: string
+  sgst?: string
+  igst?: string
+  totalAmount?: string
+  /** The photo reading the form was filled in from, if any (see readBill.ts). */
+  ocrScanId?: number
+}
+
+const OPTIONAL_DETAILS = [
+  'items',
+  'invoiceNumber',
+  'billDate',
+  'taxableAmount',
+  'cgst',
+  'sgst',
+  'igst',
+  'totalAmount',
+] as const
+
+/** The form a bill is sent as, whether straight away or later from the queue. */
+export function billForm(photo: Blob, filename: string, details: QueuedUploadDetails) {
+  const form = new FormData()
+  form.append('photo', photo, filename)
+  form.append('vendor', details.vendor)
+  form.append('item', details.item)
+  form.append('delivered', details.delivered)
+  form.append('poNumber', details.poNumber)
+  for (const key of OPTIONAL_DETAILS) {
+    const value = details[key]
+    if (value) form.append(key, value)
+  }
+  if (details.ocrScanId) form.append('ocrScanId', String(details.ocrScanId))
+  return form
 }
 
 export interface QueuedUpload extends QueuedUploadDetails {
@@ -101,13 +140,7 @@ export async function flushQueue(): Promise<{ uploaded: number; remaining: numbe
   try {
     for (const item of await listQueued()) {
       try {
-        const form = new FormData()
-        form.append('photo', item.blob, item.filename)
-        form.append('vendor', item.vendor)
-        form.append('item', item.item)
-        form.append('delivered', item.delivered)
-        form.append('poNumber', item.poNumber)
-        await api.post(`/api/projects/${item.projectId}/deliveries`, form)
+        await api.post(`/api/projects/${item.projectId}/deliveries`, billForm(item.blob, item.filename, item))
         await removeQueued(item.id)
         uploaded += 1
       } catch (err) {

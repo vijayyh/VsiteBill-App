@@ -59,3 +59,11 @@ class Config:
     S3_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_ACCESS_KEY", "")
     S3_BUCKET = os.environ.get("S3_BUCKET", "")
     S3_REGION = os.environ.get("S3_REGION", "us-east-1")
+
+    # Reading bill photos (OCR, see siteverify/ocr.py). Off until GOOGLE_VISION_API_KEY is set: an
+    # API key from Google Cloud Console restricted to the Cloud Vision API.
+    OCR_PROVIDER = os.environ.get("OCR_PROVIDER", "google")
+    GOOGLE_VISION_API_KEY = os.environ.get("GOOGLE_VISION_API_KEY", "")
+    OCR_TIMEOUT_SECONDS = float(os.environ.get("OCR_TIMEOUT_SECONDS", "20"))
+    # Names on our own side of a bill (the buyer), so they're never taken for the vendor.
+    OCR_BUYER_NAMES = os.environ.get("OCR_BUYER_NAMES", "KH Group,Sustaniq")

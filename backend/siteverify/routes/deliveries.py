@@ -4,10 +4,10 @@ from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 
-from .. import drive, notify, storage
+from .. import bills, drive, notify, ocr, storage
 from ..auth import login_required, require_role
 from ..extensions import db
-from ..models import Delivery, Project
+from ..models import Delivery, OcrScan, Project
 
 bp = Blueprint("deliveries", __name__, url_prefix="/api")
 
@@ -59,29 +59,58 @@ def create_delivery(project_id):
 
     storage.save_photo(photo, filename)
 
-    def form_float(key):
-        raw = request.form.get(key)
+    # Sending is lenient: a bill can arrive long after it was photographed (from a phone's offline
+    # queue), and rejecting it would lose it. A value that can't be read is simply left empty.
+    def lenient(read, *args):
         try:
-            return float(raw) if raw not in (None, "") else None
-        except ValueError:
+            return read(*args)
+        except bills.BillError:
             return None
 
+    form = request.form
     delivery = Delivery(
         project_id=project.id,
         uploaded_by_id=g.current_user.id,
-        vendor=request.form.get("vendor", ""),
-        item=request.form.get("item", ""),
-        po_number=request.form.get("poNumber") or None,
-        delivered=form_float("delivered"),
+        vendor=form.get("vendor", ""),
+        po_number=form.get("poNumber") or None,
+        invoice_number=lenient(bills.text, form.get("invoiceNumber"), "invoiceNumber", 60),
+        bill_date=lenient(bills.bill_date, form.get("billDate")),
         status="PENDING",
         photo_filename=filename,
     )
+    for key, column in bills.AMOUNT_FIELDS.items():
+        setattr(delivery, column, lenient(bills.number, form.get(key), key))
+    rows = lenient(bills.items, form.get("items")) if form.get("items") else None
+    if not rows:
+        # A bill from an app without the items table: its one item and quantity become one row.
+        delivered = lenient(bills.number, form.get("delivered"), "delivered")
+        item = form.get("item", "")
+        rows = [{"description": item, "quantity": delivered, "unit": None, "rate": None, "amount": None}]
+        rows = rows if item or delivered is not None else []
+    bills.apply_items(delivery, rows)
     db.session.add(delivery)
     db.session.flush()  # assigns delivery.id for the notification link
+    _attach_ocr_scan(delivery, request.form.get("ocrScanId"))
     notify.bill_uploaded(delivery)
     db.session.commit()
 
     return jsonify({"delivery": delivery.to_dict()}), 201
+
+
+def _attach_ocr_scan(delivery, scan_id):
+    """Links the reading the bill form filled itself in from (if any) to the bill, and marks the
+    quantity for a double-check when it was kept as an uncertain reading."""
+    try:
+        scan = db.session.get(OcrScan, int(scan_id)) if scan_id else None
+    except ValueError:
+        return
+    # Only the sender's own, not-yet-used reading: a stray or replayed id changes nothing.
+    if scan is None or scan.user_id != delivery.uploaded_by_id or scan.delivery_id is not None:
+        return
+    scan.delivery_id = delivery.id
+    kept_as_read = scan.delivered is not None and delivery.delivered == scan.delivered
+    if kept_as_read and scan.confidence.get("delivered", 0.0) < ocr.LOW_CONFIDENCE:
+        delivery.quantity_low_confidence = True
 
 
 @bp.get("/deliveries/<int:delivery_id>")
@@ -106,6 +135,18 @@ def update_delivery(delivery_id):
     previous_status = delivery.status
 
     # Validate everything before changing anything, so a bad field never half-applies.
+    try:
+        rows = bills.items(data["items"]) if "items" in data else None
+        details = {}
+        if "invoiceNumber" in data:
+            details["invoice_number"] = bills.text(data["invoiceNumber"], "invoiceNumber", 60)
+        if "billDate" in data:
+            details["bill_date"] = bills.bill_date(data["billDate"])
+        for key, column in bills.AMOUNT_FIELDS.items():
+            if key in data:
+                details[column] = bills.number(data[key], key)
+    except bills.BillError as e:
+        return jsonify({"error": str(e)}), 400
     numbers = {}
     for key in NUMBER_FIELDS:
         if key not in data:
@@ -133,6 +174,17 @@ def update_delivery(delivery_id):
             setattr(delivery, column, data[key])
     for key, value in numbers.items():
         setattr(delivery, key, value)
+    for column, value in details.items():
+        setattr(delivery, column, value)
+    if rows is not None:
+        bills.apply_items(delivery, rows)
+    elif ("item" in data or "delivered" in numbers) and len(delivery.items) <= 1:
+        # An app without the items table edited the one item: keep its row in step.
+        row = delivery.items[0].to_dict() if delivery.items else {"unit": None, "rate": None, "amount": None}
+        row.update(description=delivery.item, quantity=delivery.delivered)
+        bills.apply_items(delivery, [row] if delivery.item or delivery.delivered is not None else [])
+    if rows is not None or "delivered" in numbers:
+        delivery.quantity_low_confidence = False  # the office has now checked the quantity itself
     if "status" in data:
         delivery.status = data["status"]
 

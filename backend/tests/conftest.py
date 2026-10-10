@@ -17,7 +17,7 @@ PHONES = {
 
 @pytest.fixture
 def app(tmp_path):
-    # Every test gets its own SQLite file and upload folder. The S3/Google
+    # Every test gets its own SQLite file and upload folder. The S3/Google/Vision
     # settings are blanked so a developer's backend/.env can never make a test
     # touch the real storage bucket or Google Drive.
     app = create_app(
@@ -32,6 +32,7 @@ def app(tmp_path):
             "S3_BUCKET": "",
             "GOOGLE_CLIENT_ID": "",
             "GOOGLE_CLIENT_SECRET": "",
+            "GOOGLE_VISION_API_KEY": "",
         }
     )
     with app.app_context():

@@ -102,6 +102,15 @@ class Delivery(db.Model):
     quantity_low_confidence = db.Column(db.Boolean, nullable=False, default=False)
     note = db.Column(db.Text, nullable=True)
 
+    # What the bill itself says beyond its goods (all optional; any bill format).
+    invoice_number = db.Column(db.String(60), nullable=True)  # invoice / bill / challan no.
+    bill_date = db.Column(db.Date, nullable=True)
+    taxable_amount = db.Column(db.Float, nullable=True)
+    cgst = db.Column(db.Float, nullable=True)
+    sgst = db.Column(db.Float, nullable=True)
+    igst = db.Column(db.Float, nullable=True)
+    total_amount = db.Column(db.Float, nullable=True)
+
     photo_filename = db.Column(db.String(255), nullable=True)
     uploaded_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
@@ -110,6 +119,11 @@ class Delivery(db.Model):
     drive_synced_at = db.Column(db.DateTime, nullable=True)
 
     uploaded_by = db.relationship("User")
+    # The goods on the bill, one row each. `item` and `delivered` above are their summary (names
+    # and total quantity), which the lists show and the office compares with the PO.
+    items = db.relationship(
+        "DeliveryItem", order_by="DeliveryItem.position", cascade="all, delete-orphan", lazy="selectin"
+    )
 
     def to_dict(self):
         return {
@@ -129,7 +143,65 @@ class Delivery(db.Model):
             "driveFileId": self.drive_file_id,
             "driveWebViewLink": self.drive_web_view_link,
             "driveSyncedAt": iso_utc(self.drive_synced_at),
+            "items": [i.to_dict() for i in self.items],
+            "invoiceNumber": self.invoice_number,
+            "billDate": self.bill_date.isoformat() if self.bill_date else None,
+            "taxableAmount": self.taxable_amount,
+            "cgst": self.cgst,
+            "sgst": self.sgst,
+            "igst": self.igst,
+            "totalAmount": self.total_amount,
         }
+
+
+class DeliveryItem(db.Model):
+    """One line of goods on a bill."""
+
+    __tablename__ = "delivery_items"
+
+    id = db.Column(db.Integer, primary_key=True)
+    delivery_id = db.Column(db.Integer, db.ForeignKey("deliveries.id"), nullable=False, index=True)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    description = db.Column(db.String(300), nullable=False, default="")
+    quantity = db.Column(db.Float, nullable=True)
+    unit = db.Column(db.String(20), nullable=True)
+    rate = db.Column(db.Float, nullable=True)
+    amount = db.Column(db.Float, nullable=True)
+
+    def to_dict(self):
+        return {
+            "description": self.description,
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "rate": self.rate,
+            "amount": self.amount,
+        }
+
+
+class OcrScan(db.Model):
+    """One reading of a bill photo, kept next to the bill it became (if it was sent), so what the
+    OCR read can be compared with what the office finally confirmed: every matched bill is a
+    labelled example for tuning or training a reader later."""
+
+    __tablename__ = "ocr_scans"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    delivery_id = db.Column(db.Integer, db.ForeignKey("deliveries.id"), nullable=True, index=True)
+    provider = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    text = db.Column(db.Text, nullable=False, default="")  # everything the reader found on the photo
+    vendor = db.Column(db.String(200), nullable=True)
+    item = db.Column(db.String(300), nullable=True)
+    delivered = db.Column(db.Float, nullable=True)
+    po_number = db.Column(db.String(50), nullable=True)
+    confidence = db.Column(db.JSON, nullable=False, default=dict)  # {"vendor": 0.97, …}
+    reading = db.Column(db.JSON, nullable=False, default=dict)  # everything read, as the bill form gets it
+
+    def fields(self):
+        """The reading as the bill form uses it: {"vendor": {"value", "confidence"} | None, …}."""
+        return self.reading
 
 
 class PasswordResetRequest(db.Model):

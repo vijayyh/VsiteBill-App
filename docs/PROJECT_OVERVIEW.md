@@ -15,9 +15,11 @@ with a paper bill (delivery challan). Those bills have to be checked against the
 
 SiteVerify replaces the paper chase:
 
-1. The **site supervisor** photographs the bill on their phone and types in the vendor, item and
-   quantity. It works with no signal: the bill waits on the phone and sends itself once the phone
-   is back online.
+1. The **site supervisor** photographs the bill on their phone. When there's signal the app reads
+   the photo (OCR) and fills in the form: vendor, bill no. and date, PO no., every item on the bill
+   (description, quantity, unit, rate, amount) and the amounts (taxable, CGST/SGST/IGST, total).
+   The supervisor checks and corrects it, or types it in. It works with no signal: the bill waits on
+   the phone and sends itself once the phone is back online.
 2. The **office / accountant** sees every bill per project, compares delivered vs ordered quantity,
    and marks it **Matched** or **Flagged** for follow-up, with a note.
 3. The accountant can save any bill to a company **Google Drive** archive, sorted into one folder
@@ -85,7 +87,9 @@ Any bill can be saved to Google Drive; bills are never deleted by the app.
 |---|---|
 | `users` | name, initials, phone (login), password hash, role (`supervisor`/`accountant`/`admin`) |
 | `projects` | id (`kh-014`), code (`KH-PRJ-014`), name, colour; Drive folder id + next bill number |
-| `deliveries` | one bill: project, uploader, vendor, item, PO no., ordered/delivered qty, note, status, photo filename, upload time, Drive file id/link/sync time |
+| `deliveries` | one bill: project, uploader, vendor, bill no. and date, PO no., taxable amount, CGST/SGST/IGST, total, ordered qty, note, status, photo filename, upload time, Drive file id/link/sync time. `item` and `delivered` are a summary of its items (names joined, quantities added up) |
+| `delivery_items` | the goods on a bill, one row per line of its table (one for a single-item bill): description, quantity, unit, rate, amount, in printed order |
+| `ocr_scans` | each reading of a bill photo (all the text found, plus everything read off it and how sure it was), linked to the bill it became once sent, so OCR output can be compared with what the office confirmed |
 | `password_reset_requests` | "forgot password" requests and who resolved them |
 | `google_drive_account` | the single connected Google account (refresh token, root folder, chosen Shared Drive) |
 | `drive_oauth_state` | short-lived PKCE verifier between "Connect Drive" and Google's callback |
@@ -100,6 +104,7 @@ Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
 | `/api/projects` | list (with pending/flagged/matched counts), get one, list a project's bills |
 | `/api` | `GET /deliveries` (across projects; supervisors get only their own), `POST /projects/<id>/deliveries` (upload), `GET /deliveries/<id>` (supervisors: own only), `PATCH /deliveries/<id>` and `POST /deliveries/<id>/save-to-drive` (accountant + admin) |
 | `/api/notifications` | list, unread count, mark one / all read |
+| `/api/ocr` | `GET /status` (is bill reading set up), `POST /bill` (read a bill photo: vendor, bill no. and date, PO number, the items table and the amounts, each with a confidence) |
 | `/api/office` | `GET /stats` (pending, flagged, matched this month), `GET /drive` (read-only Drive links; accountant + admin) |
 | `/api/admin` | overview, all bills, users (create, reset password), password-reset requests, projects (create, edit), Drive (status, connect, callback, disconnect, shared drives) |
 | `/uploads/<file>` | login-protected photo access (redirects to a signed storage URL) |
@@ -129,6 +134,7 @@ Render dashboard.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google Drive OAuth |
 | `FRONTEND_URL` | where the Drive OAuth flow sends the admin back to |
 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_REGION` | photo storage. Unset locally, which means local disk |
+| `GOOGLE_VISION_API_KEY` | reading bill photos (OCR) with Google Cloud Vision. Unset means the bill form isn't filled in automatically |
 
 The frontend's only setting is `VITE_API_BASE`, the backend URL; locally it defaults to `:5000`.
 
@@ -146,8 +152,11 @@ backend/
     auth.py                 JWT issue/verify, login_required / require_role
     storage.py              photo storage (Supabase S3 or local disk)
     drive.py                Google Drive OAuth + uploads
+    ocr.py                  reading bill photos (OCR): Google Vision provider + the bill parser
+                            (labels, the goods table by its column headings, taxes and totals)
+    bills.py                a bill's items and amounts: checking and storing them
     seed.py                 demo accounts + starter projects (first run only)
-    routes/                 auth, projects, deliveries, office, admin
+    routes/                 auth, projects, deliveries, office, admin, ocr
 frontend/
   src/
     App.tsx                 routes per role

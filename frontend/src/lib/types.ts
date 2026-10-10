@@ -18,14 +18,34 @@ export interface ProjectSummary extends Project {
 
 export type DeliveryStatus = 'PENDING' | 'REVIEW' | 'MATCHED'
 
+/** One line of goods on a bill. */
+export interface DeliveryItem {
+  description: string
+  quantity: number | null
+  unit: string | null
+  rate: number | null
+  amount: number | null
+}
+
 export interface Delivery {
   id: number
   projectId: string
   vendor: string
+  /** The item names joined: what lists show. */
   item: string
+  items: DeliveryItem[]
   status: DeliveryStatus
   poNumber: string | null
+  invoiceNumber: string | null
+  /** YYYY-MM-DD, as printed on the bill. */
+  billDate: string | null
+  taxableAmount: number | null
+  cgst: number | null
+  sgst: number | null
+  igst: number | null
+  totalAmount: number | null
   ordered: number | null
+  /** The items' quantities added up: what the office compares with the PO. */
   delivered: number | null
   quantityLowConfidence: boolean
   note: string | null

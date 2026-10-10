@@ -14,6 +14,7 @@ import {
   itemsPayload,
   missingItemDetails,
   rowFromItem,
+  sameValue,
   totalQuantity,
   type AmountKey,
   type Amounts,
@@ -47,6 +48,8 @@ export function DeliveryDetails() {
   const [reading, setReading] = useState<'idle' | 'reading' | 'filled' | 'none'>('idle')
   const [scanId, setScanId] = useState<number | null>(null)
   const [marks, setMarks] = useState<Partial<Record<ReadText | AmountKey, Mark>>>({})
+  // What the photo said, to mark a value the supervisor then changed as EDITED.
+  const [readValues, setReadValues] = useState<Partial<Record<ReadText | AmountKey, string>>>({})
   const typed = useRef({ text: { vendor, invoiceNumber, billDate, poNumber }, rows, amounts })
 
   useEffect(() => {
@@ -78,9 +81,10 @@ export function DeliveryDetails() {
         return
       }
       setScanId(result.scanId)
-      const markOf = (confidence: number): Mark => (confidence < result.lowConfidence ? 'check' : 'read')
+      const markOf = (confidence: number) => (confidence < result.lowConfidence ? ('check' as const) : ('read' as const))
       const { fields } = result
       const filled: Partial<Record<ReadText | AmountKey, Mark>> = {}
+      const asRead: Partial<Record<ReadText | AmountKey, string>> = {}
 
       const textSetters: Record<ReadText, (value: string) => void> = {
         vendor: setVendor,
@@ -93,6 +97,7 @@ export function DeliveryDetails() {
         if (!found || typed.current.text[key].trim()) continue
         textSetters[key](found.value)
         filled[key] = markOf(found.confidence)
+        asRead[key] = found.value
       }
       const readAmounts: Partial<Amounts> = {}
       for (const { key } of AMOUNT_FIELDS) {
@@ -100,6 +105,7 @@ export function DeliveryDetails() {
         if (!found || typed.current.amounts[key].trim()) continue
         readAmounts[key] = String(found.value)
         filled[key] = markOf(found.confidence)
+        asRead[key] = String(found.value)
       }
       setAmounts((current) => ({ ...current, ...readAmounts }))
 
@@ -109,6 +115,7 @@ export function DeliveryDetails() {
         readRows = true
       }
       setMarks(filled)
+      setReadValues(asRead)
       setReading(readRows || Object.keys(filled).length > 0 ? 'filled' : 'none')
     })()
     return () => {
@@ -118,11 +125,13 @@ export function DeliveryDetails() {
 
   if (!file) return <Navigate to={`/supervisor/projects/${projectId}/upload`} replace />
 
-  // Editing a value the photo filled in makes it the supervisor's own.
-  function edit(key: ReadText | AmountKey, apply: () => void) {
-    apply()
-    setMarks((current) => ({ ...current, [key]: undefined }))
+  // A value the photo filled in is marked as read (or unclear); once changed, as EDITED.
+  const current: Record<ReadText | AmountKey, string> = { vendor, invoiceNumber, billDate, poNumber, ...amounts }
+  function markFor(key: ReadText | AmountKey): Mark | undefined {
+    const asRead = readValues[key]
+    return asRead !== undefined && !sameValue(current[key], asRead) ? 'edited' : marks[key]
   }
+  const amountMarks = Object.fromEntries(AMOUNT_FIELDS.map(({ key }) => [key, markFor(key)]))
 
   const missingFields: string[] = []
   if (!vendor.trim()) missingFields.push('vendor')
@@ -205,37 +214,37 @@ export function DeliveryDetails() {
           <div className="flex flex-col gap-3.5">
             <Field
               id="vendor"
-              label={<MarkedLabel label="Vendor" mark={marks.vendor} />}
+              label={<MarkedLabel label="Vendor" mark={markFor('vendor')} />}
               placeholder="e.g. UltraTech Cement Ltd"
-              invalid={marks.vendor === 'check' || (showErrors && !vendor.trim())}
+              invalid={markFor('vendor') === 'check' || (showErrors && !vendor.trim())}
               value={vendor}
-              onChange={(e) => edit('vendor', () => setVendor(e.target.value))}
+              onChange={(e) => setVendor(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-3">
               <Field
                 id="invoice-number"
-                label={<MarkedLabel label="Bill no." mark={marks.invoiceNumber} />}
+                label={<MarkedLabel label="Bill no." mark={markFor('invoiceNumber')} />}
                 placeholder="If printed"
-                invalid={marks.invoiceNumber === 'check'}
+                invalid={markFor('invoiceNumber') === 'check'}
                 value={invoiceNumber}
-                onChange={(e) => edit('invoiceNumber', () => setInvoiceNumber(e.target.value))}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
               />
               <Field
                 id="bill-date"
-                label={<MarkedLabel label="Bill date" mark={marks.billDate} />}
+                label={<MarkedLabel label="Bill date" mark={markFor('billDate')} />}
                 type="date"
-                invalid={marks.billDate === 'check'}
+                invalid={markFor('billDate') === 'check'}
                 value={billDate}
-                onChange={(e) => edit('billDate', () => setBillDate(e.target.value))}
+                onChange={(e) => setBillDate(e.target.value)}
               />
             </div>
             <Field
               id="po"
-              label={<MarkedLabel label="PO number" mark={marks.poNumber} />}
+              label={<MarkedLabel label="PO number" mark={markFor('poNumber')} />}
               placeholder="If known"
-              invalid={marks.poNumber === 'check'}
+              invalid={markFor('poNumber') === 'check'}
               value={poNumber}
-              onChange={(e) => edit('poNumber', () => setPoNumber(e.target.value))}
+              onChange={(e) => setPoNumber(e.target.value)}
             />
           </div>
         </div>
@@ -244,8 +253,8 @@ export function DeliveryDetails() {
 
         <AmountsCard
           amounts={amounts}
-          marks={marks}
-          onChange={(key, value) => edit(key, () => setAmounts((current) => ({ ...current, [key]: value })))}
+          marks={amountMarks}
+          onChange={(key, value) => setAmounts((before) => ({ ...before, [key]: value }))}
         />
       </div>
 

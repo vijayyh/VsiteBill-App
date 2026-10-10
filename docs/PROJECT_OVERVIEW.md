@@ -32,8 +32,8 @@ SiteVerify replaces the paper chase:
 | Role | Can do |
 |---|---|
 | Site supervisor | Pick a project → take/choose a photo → enter bill details → send (offline-capable). Sees all of their own bills (never other supervisors'), and gets an alert when one is flagged or matched. Can't edit or review bills. |
-| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive. Open the Drive archive and each project's folder, view-only. |
-| Admin | Overview stats, create users, reset any user's password (or answer a forgot-password request), create projects and edit their name/colour, connect Google Drive (and pick a Shared Drive), view all bills. |
+| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive, and see its history (what the supervisor changed from the photo reading, and every later edit). Open the Drive archive and each project's folder, view-only. |
+| Admin | Overview stats, create users, reset any user's password (or answer a forgot-password request), create projects and edit their name/colour, connect Google Drive (and pick a Shared Drive), view all bills and open any of them (same review screen as the office, with its history). |
 
 Login is by phone number + password. There's no SMS or email: "Forgot password" files a request
 that an admin resolves by setting a temporary password.
@@ -89,6 +89,7 @@ Any bill can be saved to Google Drive; bills are never deleted by the app.
 | `projects` | id (`kh-014`), code (`KH-PRJ-014`), name, colour; Drive folder id + next bill number |
 | `deliveries` | one bill: project, uploader, vendor, bill no. and date, PO no., taxable amount, CGST/SGST/IGST, total, ordered qty, note, status, photo filename, upload time, Drive file id/link/sync time. `item` and `delivered` are a summary of its items (names joined, quantities added up) |
 | `delivery_items` | the goods on a bill, one row per line of its table (one for a single-item bill): description, quantity, unit, rate, amount, in printed order |
+| `bill_changes` | each save of a bill, only ever added to: who, when, and each value from → to ("sent": what the supervisor changed from the photo reading; "edited": an office/admin save, including status and note) |
 | `ocr_scans` | each reading of a bill photo (all the text found, plus everything read off it and how sure it was), linked to the bill it became once sent, so OCR output can be compared with what the office confirmed |
 | `password_reset_requests` | "forgot password" requests and who resolved them |
 | `google_drive_account` | the single connected Google account (refresh token, root folder, chosen Shared Drive) |
@@ -102,7 +103,7 @@ Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
 |---|---|
 | `/api/auth` | `POST /login`, `GET /me`, `POST /change-password`, `POST /forgot-password` |
 | `/api/projects` | list (with pending/flagged/matched counts), get one, list a project's bills |
-| `/api` | `GET /deliveries` (across projects; supervisors get only their own), `POST /projects/<id>/deliveries` (upload), `GET /deliveries/<id>` (supervisors: own only), `PATCH /deliveries/<id>` and `POST /deliveries/<id>/save-to-drive` (accountant + admin) |
+| `/api` | `GET /deliveries` (across projects; supervisors get only their own), `POST /projects/<id>/deliveries` (upload), `GET /deliveries/<id>` (supervisors: own only), `PATCH /deliveries/<id>`, `GET /deliveries/<id>/changes` (the bill's history) and `POST /deliveries/<id>/save-to-drive` (accountant + admin) |
 | `/api/notifications` | list, unread count, mark one / all read |
 | `/api/ocr` | `GET /status` (is bill reading set up), `POST /bill` (read a bill photo: vendor, bill no. and date, PO number, the items table and the amounts, each with a confidence) |
 | `/api/office` | `GET /stats` (pending, flagged, matched this month), `GET /drive` (read-only Drive links; accountant + admin) |
@@ -154,7 +155,7 @@ backend/
     drive.py                Google Drive OAuth + uploads
     ocr.py                  reading bill photos (OCR): Google Vision provider + the bill parser
                             (labels, the goods table by its column headings, taxes and totals)
-    bills.py                a bill's items and amounts: checking and storing them
+    bills.py                a bill's items and amounts: checking and storing them, and what a save changed
     seed.py                 demo accounts + starter projects (first run only)
     routes/                 auth, projects, deliveries, office, admin, ocr
 frontend/

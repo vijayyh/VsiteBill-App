@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AdminShell } from '../../components/AdminShell'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
@@ -60,7 +61,12 @@ export function AdminDeliveries() {
             >
               {bill.photoUrl && <AuthImage src={bill.photoUrl} className="w-full h-full object-cover" />}
             </button>
-            <div className="flex-grow min-w-0">
+            <Link
+              to={`/admin/projects/${bill.projectId}/review/${bill.id}`}
+              state={{ from: '/admin/deliveries' }}
+              aria-label={`Open the bill from ${bill.vendor || 'unknown vendor'}`}
+              className="flex-grow min-w-0"
+            >
               <BillSummary
                 vendor={bill.vendor}
                 item={`${bill.project.code} · ${bill.item || 'No item description'}`}
@@ -73,7 +79,7 @@ export function AdminDeliveries() {
                 timestamp={bill.uploadedAt}
                 inDrive={!!bill.driveFileId}
               />
-            </div>
+            </Link>
           </div>
         ))}
       </div>

@@ -204,6 +204,36 @@ class OcrScan(db.Model):
         return self.reading
 
 
+class BillChange(db.Model):
+    """One save of a bill and what it changed: who, when, and each value from → to. Rows are only
+    ever added, never edited or deleted, so they show how a bill came to say what it says.
+
+    "sent" is the supervisor sending it; its changes are what they changed from the photo reading.
+    "edited" is the office (or an admin) saving it."""
+
+    __tablename__ = "bill_changes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    delivery_id = db.Column(db.Integer, db.ForeignKey("deliveries.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    action = db.Column(db.String(20), nullable=False)  # sent | edited
+    from_reading = db.Column(db.Boolean, nullable=False, default=False)  # filled in from the photo
+    changes = db.Column(db.JSON, nullable=False, default=list)  # [{"field", "from", "to"}, …]
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    user = db.relationship("User")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "action": self.action,
+            "fromReading": self.from_reading,
+            "changes": self.changes,
+            "by": {"name": self.user.name, "role": self.user.role},
+            "at": iso_utc(self.created_at),
+        }
+
+
 class PasswordResetRequest(db.Model):
     __tablename__ = "password_reset_requests"
 

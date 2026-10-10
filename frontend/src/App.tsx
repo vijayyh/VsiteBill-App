@@ -49,6 +49,8 @@ const ROUTES: Record<Role, [string, ReactNode][]> = {
     ['users', <AdminUsers />],
     ['projects', <AdminProjects />],
     ['deliveries', <AdminDeliveries />],
+    // The same bill screen as the office's, with the bill's history.
+    ['projects/:projectId/review/:deliveryId', <ReviewDelivery />],
   ],
 }
 

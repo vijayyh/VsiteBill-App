@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
-import { AmountsCard, ItemsEditor, SectionLabel } from '../../components/BillParts'
+import { BillHistory } from '../../components/BillHistory'
+import { AmountsCard, ItemsEditor, MarkedLabel, NumbersOnly, ReadMark, SectionLabel } from '../../components/BillParts'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -9,24 +10,33 @@ import { Card, Field, btnPrimary, btnSecondary } from '../../components/ui'
 import { IconAlertTriangle, IconCamera, IconCheck, IconClipboardCheck, IconCloud } from '../../components/icons'
 import { api, ApiError, useApiGet } from '../../lib/api'
 import {
+  AMOUNT_FIELDS,
   amountsFromDelivery,
+  editedFields,
   emptyAmounts,
   emptyRow,
   itemsPayload,
   missingItemDetails,
+  numberOnly,
   rowFromItem,
+  sameValue,
   totalQuantity,
   type Amounts,
   type ItemRow,
+  type Mark,
 } from '../../lib/bill'
 import { formatDateTime } from '../../lib/format'
-import type { Delivery, Project } from '../../lib/types'
+import type { BillHistoryEntry, Delivery, Project } from '../../lib/types'
 
 export function ReviewDelivery() {
   const { projectId = '', deliveryId = '' } = useParams()
   const location = useLocation()
+  // The office opens bills from its lists; an admin from the list of every bill.
+  const isAdmin = location.pathname.startsWith('/admin')
   // Lists that open a bill (Home, Review queue) pass where they are so back/save returns there.
-  const backTo = (location.state as { from?: string } | null)?.from ?? `/accountant/projects/${projectId}/gallery`
+  const backTo =
+    (location.state as { from?: string } | null)?.from ??
+    (isAdmin ? '/admin/deliveries' : `/accountant/projects/${projectId}/gallery`)
   const { data: projectData, error: projectError } = useApiGet<{ project: Project }>(
     `/api/projects/${projectId}`,
   )
@@ -35,12 +45,14 @@ export function ReviewDelivery() {
     error: deliveryError,
     refetch: refetchDelivery,
   } = useApiGet<{ delivery: Delivery }>(`/api/deliveries/${deliveryId}`)
+  const { data: historyData } = useApiGet<{ changes: BillHistoryEntry[] }>(`/api/deliveries/${deliveryId}/changes`)
   const navigate = useNavigate()
 
   const [vendor, setVendor] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [billDate, setBillDate] = useState('')
   const [orderedQty, setOrderedQty] = useState('')
+  const [orderedRejected, setOrderedRejected] = useState(false)
   const [poNumber, setPoNumber] = useState('')
   const [rows, setRows] = useState<ItemRow[]>([emptyRow()])
   const [amounts, setAmounts] = useState<Amounts>(emptyAmounts)
@@ -67,7 +79,7 @@ export function ReviewDelivery() {
     setNote(delivery.note ?? '')
   }, [delivery])
 
-  if (projectError || deliveryError) return <Navigate to="/accountant" replace />
+  if (projectError || deliveryError) return <Navigate to={isAdmin ? '/admin' : '/accountant'} replace />
   if (!delivery || !project) {
     return (
       <div className="flex flex-col flex-grow text-ink">
@@ -76,6 +88,17 @@ export function ReviewDelivery() {
       </div>
     )
   }
+
+  // EDITED marks: a value changed on this screen (from what's saved), or by an earlier save
+  // (supervisor's changes from the photo reading, the office's edits) as the history records.
+  const earlier = editedFields(historyData?.changes ?? [])
+  function markFor(field: string, value: string, saved: string): Mark | undefined {
+    return !sameValue(value, saved) || earlier.has(field) ? 'edited' : undefined
+  }
+  const savedAmounts = amountsFromDelivery(delivery)
+  const amountMarks = Object.fromEntries(
+    AMOUNT_FIELDS.map(({ key }) => [key, markFor(key, amounts[key], savedAmounts[key])]),
+  )
 
   // What was delivered is the items' quantities added up.
   const deliveredTotal = totalQuantity(rows)
@@ -243,42 +266,75 @@ export function ReviewDelivery() {
           <div className="flex flex-col gap-3.5">
             <Field
               id="vendor"
-              label="Vendor"
+              label={<MarkedLabel label="Vendor" mark={markFor('vendor', vendor, delivery.vendor)} />}
               invalid={showErrors && !vendor.trim()}
               value={vendor}
               onChange={(e) => setVendor(e.target.value)}
             />
             <div className="grid grid-cols-2 gap-3">
-              <Field id="invoice-number" label="Bill no." value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
-              <Field id="bill-date" label="Bill date" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} />
+              <Field
+                id="invoice-number"
+                label={<MarkedLabel label="Bill no." mark={markFor('invoiceNumber', invoiceNumber, delivery.invoiceNumber ?? '')} />}
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+              />
+              <Field
+                id="bill-date"
+                label={<MarkedLabel label="Bill date" mark={markFor('billDate', billDate, delivery.billDate ?? '')} />}
+                type="date"
+                value={billDate}
+                onChange={(e) => setBillDate(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field
                 id="po"
-                label="PO number"
+                label={<MarkedLabel label="PO number" mark={markFor('poNumber', poNumber, delivery.poNumber ?? '')} />}
                 invalid={showErrors && !poNumber.trim()}
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
               />
               <Field
                 id="ordered-qty"
-                label="Ordered qty (PO)"
+                label={
+                  <MarkedLabel
+                    label="Ordered qty"
+                    mark={markFor('ordered', orderedQty, delivery.ordered != null ? String(delivery.ordered) : '')}
+                  />
+                }
                 inputMode="decimal"
-                invalid={showErrors && !orderedQty.trim()}
+                invalid={orderedRejected || (showErrors && !orderedQty.trim())}
+                hint={orderedRejected && <NumbersOnly className="-ml-1" />}
                 value={orderedQty}
-                onChange={(e) => setOrderedQty(e.target.value)}
+                onChange={(e) => {
+                  const typed = numberOnly(e.target.value)
+                  setOrderedRejected(typed.rejected)
+                  setOrderedQty(typed.value)
+                }}
+                onBlur={() => setOrderedRejected(false)}
               />
             </div>
           </div>
         </div>
 
-        <ItemsEditor rows={rows} onChange={setRows} showErrors={showErrors} flagged={delivery.quantityLowConfidence} />
+        <ItemsEditor
+          rows={rows}
+          onChange={setRows}
+          showErrors={showErrors}
+          flagged={delivery.quantityLowConfidence}
+          editedFields={earlier}
+        />
 
-        <AmountsCard amounts={amounts} onChange={(key, value) => setAmounts((current) => ({ ...current, [key]: value }))} />
+        <AmountsCard
+          amounts={amounts}
+          marks={amountMarks}
+          onChange={(key, value) => setAmounts((current) => ({ ...current, [key]: value }))}
+        />
 
         <div>
-          <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 block" htmlFor="note">
+          <label className="text-[12px] font-semibold text-label mb-1.5 ml-3 flex items-center gap-1.5" htmlFor="note">
             Note (optional)
+            <ReadMark mark={markFor('note', note, delivery.note ?? '')} />
           </label>
           <textarea
             id="note"
@@ -289,6 +345,8 @@ export function ReviewDelivery() {
             onChange={(e) => setNote(e.target.value)}
           />
         </div>
+
+        <BillHistory history={historyData?.changes} />
       </div>
 
       <div className="sticky bottom-0 z-10 px-3 pb-[calc(0.75rem+var(--safe-bottom))] pt-2">

@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 from .. import bills, drive, notify, ocr, storage
 from ..auth import login_required, require_role
 from ..extensions import db
-from ..models import Delivery, OcrScan, Project
+from ..models import BillChange, Delivery, OcrScan, Project
 
 bp = Blueprint("deliveries", __name__, url_prefix="/api")
 
@@ -90,7 +90,17 @@ def create_delivery(project_id):
     bills.apply_items(delivery, rows)
     db.session.add(delivery)
     db.session.flush()  # assigns delivery.id for the notification link
-    _attach_ocr_scan(delivery, request.form.get("ocrScanId"))
+    scan = _attach_ocr_scan(delivery, request.form.get("ocrScanId"))
+    db.session.add(
+        BillChange(
+            delivery_id=delivery.id,
+            user_id=g.current_user.id,
+            action="sent",
+            from_reading=scan is not None,
+            # What the supervisor changed from what the photo said (nothing to compare without one).
+            changes=bills.differences(bills.reading_values(scan.reading), bills.snapshot(delivery)) if scan else [],
+        )
+    )
     notify.bill_uploaded(delivery)
     db.session.commit()
 
@@ -99,18 +109,35 @@ def create_delivery(project_id):
 
 def _attach_ocr_scan(delivery, scan_id):
     """Links the reading the bill form filled itself in from (if any) to the bill, and marks the
-    quantity for a double-check when it was kept as an uncertain reading."""
+    quantity for a double-check when it was kept as an uncertain reading. Returns the reading."""
     try:
         scan = db.session.get(OcrScan, int(scan_id)) if scan_id else None
     except ValueError:
-        return
+        return None
     # Only the sender's own, not-yet-used reading: a stray or replayed id changes nothing.
     if scan is None or scan.user_id != delivery.uploaded_by_id or scan.delivery_id is not None:
-        return
+        return None
     scan.delivery_id = delivery.id
     kept_as_read = scan.delivered is not None and delivery.delivered == scan.delivered
     if kept_as_read and scan.confidence.get("delivered", 0.0) < ocr.LOW_CONFIDENCE:
         delivery.quantity_low_confidence = True
+    return scan
+
+
+@bp.get("/deliveries/<int:delivery_id>/changes")
+@require_role("accountant", "admin")
+def list_bill_changes(delivery_id):
+    """The bill's history, newest first: who sent it (and what they changed from the photo
+    reading), and every later save by the office, with each value from → to."""
+    delivery = db.session.get(Delivery, delivery_id)
+    if delivery is None:
+        return jsonify({"error": "Delivery not found"}), 404
+    entries = (
+        BillChange.query.filter_by(delivery_id=delivery.id)
+        .order_by(BillChange.created_at.desc(), BillChange.id.desc())
+        .all()
+    )
+    return jsonify({"changes": [entry.to_dict() for entry in entries]})
 
 
 @bp.get("/deliveries/<int:delivery_id>")
@@ -133,6 +160,7 @@ def update_delivery(delivery_id):
 
     data = request.get_json(silent=True) or {}
     previous_status = delivery.status
+    before = bills.snapshot(delivery)
 
     # Validate everything before changing anything, so a bad field never half-applies.
     try:
@@ -145,24 +173,9 @@ def update_delivery(delivery_id):
         for key, column in bills.AMOUNT_FIELDS.items():
             if key in data:
                 details[column] = bills.number(data[key], key)
+        numbers = {key: bills.number(data[key], key) for key in NUMBER_FIELDS if key in data}
     except bills.BillError as e:
         return jsonify({"error": str(e)}), 400
-    numbers = {}
-    for key in NUMBER_FIELDS:
-        if key not in data:
-            continue
-        value = data[key]
-        if value in (None, ""):
-            numbers[key] = None
-        elif isinstance(value, bool) or not isinstance(value, (int, float, str)):
-            return jsonify({"error": f"{key} must be a number"}), 400
-        else:
-            try:
-                numbers[key] = float(value)
-            except ValueError:
-                return jsonify({"error": f"{key} must be a number"}), 400
-            if numbers[key] < 0:
-                return jsonify({"error": f"{key} can't be negative"}), 400
     for key in TEXT_FIELDS:
         if key in data and data[key] is not None and not isinstance(data[key], str):
             return jsonify({"error": f"{key} must be text"}), 400
@@ -188,6 +201,11 @@ def update_delivery(delivery_id):
     if "status" in data:
         delivery.status = data["status"]
 
+    changes = bills.differences(before, bills.snapshot(delivery))
+    if changes:
+        db.session.add(
+            BillChange(delivery_id=delivery.id, user_id=g.current_user.id, action="edited", changes=changes)
+        )
     if delivery.status != previous_status:
         notify.bill_status_changed(delivery, g.current_user)
     db.session.commit()

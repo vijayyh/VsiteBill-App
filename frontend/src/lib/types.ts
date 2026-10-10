@@ -57,6 +57,24 @@ export interface Delivery {
   driveSyncedAt: string | null
 }
 
+/** One value a save changed. Item fields are "items.2.quantity"; a whole row added or removed is "items.2". */
+export interface BillChange {
+  field: string
+  from: string | number | null
+  to: string | number | null
+}
+
+/** One save of a bill (GET /api/deliveries/<id>/changes; office and admin only). */
+export interface BillHistoryEntry {
+  id: number
+  /** "sent": the supervisor sending it, with what they changed from the photo reading. "edited": an office save. */
+  action: 'sent' | 'edited'
+  fromReading: boolean
+  changes: BillChange[]
+  by: { name: string; role: Role }
+  at: string
+}
+
 export interface AdminUser {
   id: number
   name: string

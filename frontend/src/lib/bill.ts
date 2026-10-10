@@ -1,20 +1,24 @@
-import type { Delivery, DeliveryItem } from './types'
+import { STATUS_META } from './status'
+import type { BillHistoryEntry, Delivery, DeliveryItem, DeliveryStatus } from './types'
 
-/** How a value the photo reading filled in is marked: read clearly, or unclear and worth checking. */
-export type Mark = 'read' | 'check'
+/**
+ * How a value is marked beside its label: filled in from the photo and read clearly ("read"),
+ * filled in but unclear ("check"), or changed from what it was (from the photo reading, or from
+ * what was saved) ("edited").
+ */
+export type Mark = 'read' | 'check' | 'edited'
+
+export const ROW_KEYS = ['description', 'quantity', 'unit', 'rate', 'amount'] as const
+export type RowKey = (typeof ROW_KEYS)[number]
+export type RowValues = Record<RowKey, string>
 
 /** A goods row as typed into the form (every value is text until it's sent). */
-export interface ItemRow {
-  description: string
-  quantity: string
-  unit: string
-  rate: string
-  amount: string
-  /** Set when the photo reading filled this row in; cleared once it's edited. */
-  mark?: Mark
+export interface ItemRow extends RowValues {
+  /** How the photo reading filled this row in, if it did. */
+  mark?: 'read' | 'check'
+  /** The values the row started with (as read from the photo, or as saved): what "edited" compares to. */
+  original?: RowValues
 }
-
-const ROW_KEYS = ['description', 'quantity', 'unit', 'rate', 'amount'] as const
 
 export type AmountKey = 'taxableAmount' | 'cgst' | 'sgst' | 'igst' | 'totalAmount'
 export type Amounts = Record<AmountKey, string>
@@ -43,6 +47,30 @@ export function toNumber(text: string): number | null {
   return Number.isFinite(value) ? value : null
 }
 
+/**
+ * Keeps only what a number can hold: digits and one decimal point. Grouping commas and spaces in
+ * a pasted "1,750.94" are dropped quietly; anything else (letters, ₹, -, a second point) is
+ * dropped and reported, so the field can say "numbers only".
+ */
+export function numberOnly(input: string): { value: string; rejected: boolean } {
+  let value = ''
+  let rejected = false
+  for (const ch of input) {
+    if (ch >= '0' && ch <= '9') value += ch
+    else if (ch === '.' && !value.includes('.')) value += ch
+    else if (ch !== ',' && ch.trim() !== '') rejected = true
+  }
+  return { value, rejected }
+}
+
+const NUMERIC = /^[\d,.\s₹]+$/
+
+/** Two values as typed are the same: equal numbers ("711450" and "711450.00"), or equal text. */
+export function sameValue(a: string, b: string) {
+  if (NUMERIC.test(a) && NUMERIC.test(b)) return toNumber(a) === toNumber(b)
+  return a.trim() === b.trim()
+}
+
 function text(value: number | string | null | undefined) {
   return value == null ? '' : String(value)
 }
@@ -53,6 +81,12 @@ export function isEmptyRow(row: ItemRow) {
 
 export function filledRows(rows: ItemRow[]) {
   return rows.filter((row) => !isEmptyRow(row))
+}
+
+/** The row's fields that differ from what it started with. */
+export function changedKeys(row: ItemRow): Set<RowKey> {
+  const { original } = row
+  return new Set(original ? ROW_KEYS.filter((key) => !sameValue(row[key], original[key])) : [])
 }
 
 /** The quantities added up (null when none is filled in): the "delivered" the office compares with the PO. */
@@ -95,14 +129,16 @@ export function itemsPayload(rows: ItemRow[]) {
   }))
 }
 
+/** A row from the API (or the photo reading), remembering its values as where it started. */
 export function rowFromItem(item: Partial<Record<keyof DeliveryItem, string | number | null>>): ItemRow {
-  return {
+  const values: RowValues = {
     description: text(item.description),
     quantity: text(item.quantity),
     unit: text(item.unit),
     rate: text(item.rate),
     amount: text(item.amount),
   }
+  return { ...values, original: { ...values } }
 }
 
 export function amountsFromDelivery(delivery: Delivery): Amounts {
@@ -130,4 +166,49 @@ export function amountsCheck(amounts: Amounts): { addsUp: boolean; difference: n
 
 export function formatMoney(value: number) {
   return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// ── The bill's history ──────────────────────────────────────────────────────────────────────────
+
+/** Every field any save changed ("vendor", "items.2.quantity", "items.3"), to mark them edited. */
+export function editedFields(history: BillHistoryEntry[]): Set<string> {
+  return new Set(history.flatMap((entry) => entry.changes.map((change) => change.field)))
+}
+
+/** Whether row n (1-based) or one of its fields was changed by an earlier save. */
+export function rowWasEdited(fields: Set<string>, n: number) {
+  return [...fields].some((field) => field === `items.${n}` || field.startsWith(`items.${n}.`))
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  vendor: 'Vendor',
+  invoiceNumber: 'Bill no.',
+  billDate: 'Bill date',
+  poNumber: 'PO number',
+  ordered: 'Ordered qty',
+  note: 'Note',
+  status: 'Status',
+  ...Object.fromEntries(AMOUNT_FIELDS.map(({ key, label }) => [key, label])),
+}
+
+/** "items.2.quantity" → "Item 2 quantity"; "taxableAmount" → "Taxable amount". */
+export function changeLabel(field: string) {
+  const item = /^items\.(\d+)(?:\.(\w+))?$/.exec(field)
+  if (item) return item[2] ? `Item ${item[1]} ${item[2]}` : `Item ${item[1]}`
+  return FIELD_LABELS[field] ?? field
+}
+
+/** A recorded value as people read it. */
+export function changeValue(field: string, value: string | number | null) {
+  if (value === null || value === '') return 'empty'
+  if (field === 'status') return STATUS_META[value as DeliveryStatus]?.label ?? String(value)
+  if (typeof value === 'number') {
+    const money = AMOUNT_FIELDS.some(({ key }) => key === field) || /\.(rate|amount)$/.test(field)
+    return money ? formatMoney(value) : value.toLocaleString('en-IN')
+  }
+  if (field === 'billDate') {
+    const date = new Date(`${value}T00:00:00`)
+    if (!Number.isNaN(date.getTime())) return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  return String(value)
 }

@@ -7,22 +7,24 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-09, end of session (office machine; the user continues at home)_
+_Last updated: 2026-10-10 (home machine)_
 
-**Next session (home PC): start OCR with Google Cloud Vision** (open item 6 has the agreed plan).
-The user's order:
-1. **Web app first**, checked in the Vite dev preview (`siteverify-frontend` + `siteverify-backend`).
-2. **Then the browser-based APK** (`android/`): it shows the live site, so it gets OCR as soon as
-   the web change is pushed and deployed. No new APK needed; just check it on a phone.
-3. **Only if that works, add it to the native app beta** (`native-app/`, same server endpoint).
+**OCR, bill items and the change history are built, on the branch `ocr-bill-reading`** (pushed;
+`main` is untouched, so the live site hasn't changed). On the other machine:
+`git fetch` then `git switch ocr-bill-reading`, then `flask db upgrade` in `backend/` (two new
+migrations). See the 2026-10-10 session log entry for what's in it.
 
-Before any code, the user does the Google Cloud setup: enable the **Cloud Vision API** (billing on;
-first 1,000 images/month free, then about $1.50 per 1,000), create an **API key restricted to the
-Vision API**, and put it in `backend/.env` as `GOOGLE_VISION_API_KEY=` themselves (never pasted
-into chat); add the same to Render → vsitebill-api → Environment when it goes live. Then build
-one step at a time: server `extract(photo)` + endpoint + tests first, then the web bill form.
+**Next:**
+1. The user checks the branch. When they're happy: merge it into `main` (that deploys it).
+   Before or at that point, in Render → vsitebill-api → Environment add `GOOGLE_VISION_API_KEY`
+   (a **fresh** key restricted to the Cloud Vision API; the key pasted into chat on 2026-10-10
+   must be deleted in Google Cloud). Without the key the live form just isn't filled in
+   automatically; everything else works.
+2. Then the browser APK (`android/`) gets it automatically (it shows the live site): check on a phone.
+3. Then the **native app twin** (`native-app/`): OCR filling, the items table, amounts, EDITED
+   marks, number-only boxes and the History section, as in the web app. Not started.
 
-**State:** everything is in `main` and pushed. The web app is live and unchanged since 2026-10-05.
+**State:** `main` is pushed and live, unchanged since 2026-10-05 apart from the native app.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
 own top-level `native-app/` folder; nothing outside that folder changed except docs. It is not
 installed on a real phone yet.
@@ -95,7 +97,8 @@ production photo bucket; blank them in the environment when creating test bills.
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
    `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
    pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
-6. **OCR (planned for later, decided 2026-10-05).** Goal: when a supervisor photographs a bill, the
+6. **OCR: built 2026-10-10 on branch `ocr-bill-reading`** (web app; native app still to do). The
+   original plan, kept for reference. Goal: when a supervisor photographs a bill, the
    vendor / item / quantity / PO fields fill themselves in. Plan:
    - Run OCR **on the server** behind a swappable `extract(photo)` function (e.g.
      `OCR_PROVIDER=google|custom`), with a new endpoint the bill form calls. The app and APK don't
@@ -160,7 +163,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | Next (Google Cloud Vision; web first, then native) |
+| 8 | OCR on bill photos | Web app built 2026-10-10 on branch `ocr-bill-reading`, not merged yet; native next |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -168,6 +171,40 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-10 — OCR, bills with many items, change history (home, branch `ocr-bill-reading`)
+
+- **Reading bills (OCR):** `backend/siteverify/ocr.py` sends the photo to Google Cloud Vision
+  (`GOOGLE_VISION_API_KEY`) and parses: vendor ("Sold By", the big name at the top, or the
+  "For …" signature), bill no., bill date, PO number (a printed "PO No." box wins over a
+  seller's "Order No."; an empty PO box means none), the goods table found by its column
+  headings (stacked two-line headings too), and taxable amount / CGST / SGST / IGST / total.
+  Each value has a confidence; amounts that add up are trusted. `POST /api/ocr/bill`; every
+  reading is kept in `ocr_scans` for training a model later. Tested against two real bills
+  (kept in `Bill-Samples/`, git-ignored; never commit them, the repo is public): every value
+  read matched the bill.
+- **Bills have items now:** `delivery_items` (description, quantity, unit, rate, amount; any
+  number per bill) and new bill columns: invoice no., bill date, taxable amount, CGST, SGST, IGST,
+  total. Existing bills became one item each (migration `e4a27323ee0e`). `item`/`delivered` are
+  now the items' summary. `backend/siteverify/bills.py` checks and stores them.
+- **Web form:** Bill / Items / Amounts sections, filled in from the photo; a camera mark = read
+  clearly, CHECK = unclear on the photo, EDITED = changed from what the photo read (changing it
+  back removes it). Items can be added and removed. The amounts show whether taxable + GST =
+  total. The offline queue carries everything.
+- **Change history (security):** `bill_changes` (migration `f42778264e05`), only ever added to.
+  Sending records what the supervisor changed from the photo reading; every office/admin save
+  records each value from → to, including status and note. `GET /api/deliveries/<id>/changes`
+  (office and admin only). The review screen marks edited values EDITED and lists the History
+  (who, role, when, each change). Admins can now open any bill from their Bills list (same
+  screen, `/admin/projects/<id>/review/<bill>`).
+- **Numbers only:** amount, quantity, rate and ordered-qty boxes drop anything but digits and one
+  decimal point as it's typed or pasted, with "Numbers only" under the box. The server refuses
+  anything else too ("1e5", "12abc", "₹10", "nan"); grouping commas are fine.
+- Verified in the browser preview (local backend, real Vision key in `backend/.env`): both
+  sample bills read, sent, edited by the office, flagged; history seen as office and as admin;
+  the offline queue sends items and amounts. All test bills, readings, alerts, history rows and
+  photos deleted afterwards. 137 backend tests pass; frontend lint and build clean.
+- Not done: the native app twin; the Render key (see "Where we left off").
 
 ### 2026-10-09 — Native app set up on the office PC; full side-by-side check (office)
 

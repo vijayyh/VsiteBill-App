@@ -9,24 +9,24 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-10 (home machine)_
 
-**OCR, bill items and the change history are in `main`** (pushed 2026-10-10 at the user's
-go-ahead, after the upgrade was rehearsed on a throwaway Postgres; CI passed at 17:05 UTC).
-**But Render had not deployed it as of 18:00 UTC**: both services were still on the old version
-(the live `/api/ocr/status` answered 404; the new version answers 401), and Render reported
-nothing back to GitHub. Nothing is half-deployed. On the other machine: `git pull`, then
-`flask db upgrade` in `backend/` (two new migrations). See the 2026-10-10 session log entries.
+**OCR, bill items and the change history are live** (deployed 2026-10-10 at 18:22 UTC). The
+production database was upgraded by the deploy's `flask db upgrade` (d0dc350e48df → e4a27323ee0e
+→ f42778264e05; rehearsed beforehand on a throwaway Postgres). `GOOGLE_VISION_API_KEY` is set on
+vsitebill-api. On the other machine: `git pull`, then `flask db upgrade` in `backend/`.
+
+**Render didn't auto-deploy the push** (both services are on "Auto-Deploy: After CI Checks Pass",
+CI passed, but no deploy started and nothing showed in Events). Fixed by "Manual Deploy → Deploy
+latest commit" on `vsitebill-api` and on the static site (the static site is named
+`VsiteBill-App` in the dashboard and sits outside the "VsiteBilll App" project). **Next time
+something is pushed to `main`, check Render's Events**; if no deploy starts again, deploy by hand
+and look at Render's GitHub connection (Account settings → Git providers).
 
 **Next:**
-1. **Find out why Render didn't deploy** (Render dashboard → `vsitebill-api` and `vsitebill-app` →
-   Events: was a deploy for commit `132551d` started, did it fail, is Auto-Deploy on?). If
-   nothing started: "Manual Deploy → Deploy latest commit" on both. Check afterwards that
-   `https://vsitebill-api.onrender.com/api/ocr/status` answers 401 (not 404).
-2. **Render → vsitebill-api → Environment: add `GOOGLE_VISION_API_KEY`** (a **fresh** key
-   restricted to the Cloud Vision API; the key pasted into chat on 2026-10-10 must be deleted in
-   Google Cloud). Until then the live form just isn't filled in automatically; everything else works.
-3. Once deployed, the browser APK (`android/`) has the new form too (it shows the live site):
-   check on a phone.
-4. The **native app twin** is built and tested on the emulator, on the branch `ocr-bill-reading`
+1. The user tries it on the live site: photograph a bill, check the form fills in. Make sure the
+   Vision key in Render is a **fresh** one (the key pasted into chat on 2026-10-10 must be deleted
+   in Google Cloud).
+2. The browser APK (`android/`) shows the live site, so it has the new form already: check on a phone.
+3. The **native app twin** is built and tested on the emulator, on the branch `ocr-bill-reading`
    (not in `main`). It adds a native module (`@react-native-community/datetimepicker`), so phones
    need a new release APK; none built yet. Merge it when the user says so.
 
@@ -103,7 +103,7 @@ production photo bucket; blank them in the environment when creating test bills.
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
    `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
    pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
-6. **OCR: built 2026-10-10** (web app in `main`, native app on branch `ocr-bill-reading`). The
+6. **OCR: live on the web app since 2026-10-10** (native app on branch `ocr-bill-reading`). The
    original plan, kept for reference. Goal: when a supervisor photographs a bill, the
    vendor / item / quantity / PO fields fill themselves in. Plan:
    - Run OCR **on the server** behind a swappable `extract(photo)` function (e.g.
@@ -169,7 +169,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | Web app in `main` 2026-10-10 (Render deploy pending); native app on branch |
+| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app on branch `ocr-bill-reading` |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -180,8 +180,9 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
 
 ### 2026-10-10 (later) — Pushed to `main`; native app twin (home)
 
-- Web: the two tested commits plus the log went to `main` (fast-forward). CI passed. Render
-  had not deployed either service an hour later (see "Where we left off").
+- Web: the two tested commits plus the log went to `main` (fast-forward). CI passed, but Render
+  didn't auto-deploy; deployed by hand from the dashboard at the user's request (18:22 UTC).
+  Checked afterwards: the live API answers the new endpoints, the live website has the new form.
 - Native app (`native-app/`, branch `ocr-bill-reading`): the same Bill / Items / Amounts form,
   filled in from the photo, with the camera / CHECK / EDITED marks and number-only boxes; the
   office review screen with the same sections and the History; admins open a bill from Bills

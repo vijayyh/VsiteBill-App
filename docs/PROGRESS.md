@@ -7,7 +7,7 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-10 (home machine)_
+_Last updated: 2026-10-11 (home machine)_
 
 **OCR, bill items and the change history are live** (deployed 2026-10-10 at 18:22 UTC). The
 production database was upgraded by the deploy's `flask db upgrade` (d0dc350e48df → e4a27323ee0e
@@ -26,9 +26,10 @@ and look at Render's GitHub connection (Account settings → Git providers).
    Vision key in Render is a **fresh** one (the key pasted into chat on 2026-10-10 must be deleted
    in Google Cloud).
 2. The browser APK (`android/`) shows the live site, so it has the new form already: check on a phone.
-3. The **native app twin** is built and tested on the emulator, on the branch `ocr-bill-reading`
-   (not in `main`). It adds a native module (`@react-native-community/datetimepicker`), so phones
-   need a new release APK; none built yet. Merge it when the user says so.
+3. **Native app 2.1.0 is in `main` and built**: `native-app/SiteVerify-Beta-2.1.0.apk` (home
+   machine only; APKs aren't in git). Install it on a phone: it updates SiteVerify Beta 2.0.0 (or
+   installs next to the current app) and uses the live server. Check bill reading, the items
+   table, amounts and the History on a real phone.
 
 **State:** `main` is pushed and live.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
@@ -103,7 +104,7 @@ production photo bucket; blank them in the environment when creating test bills.
    which never sleeps (the proper fix before real use); (b) a free uptime pinger hitting
    `/api/health` every 5 min, which keeps it awake within the 750 free hours/month; (c) the app
    pings the server as soon as it opens and shows "Starting up…" instead of a frozen button.
-6. **OCR: live on the web app since 2026-10-10** (native app on branch `ocr-bill-reading`). The
+6. **OCR: live on the web app since 2026-10-10; native app 2.1.0 built 2026-10-11.** The
    original plan, kept for reference. Goal: when a supervisor photographs a bill, the
    vendor / item / quantity / PO fields fill themselves in. Plan:
    - Run OCR **on the server** behind a swappable `extract(photo)` function (e.g.
@@ -169,7 +170,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app on branch `ocr-bill-reading` |
+| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app 2.1.0 built 2026-10-11 |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -177,6 +178,20 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-11 — Native app merged; release APK 2.1.0 (home)
+
+- Merged the native twin into `main` (fast-forward; only `native-app/` changed, so no Render
+  deploy). Version 2.1.0, versionCode 101 (`app.config.ts`).
+- Release APK (beta variant) built from `C:\sv\native-app` as in the README: 10.5 min, 94 MB,
+  signed with the SiteVerify key (SHA-256 `b0811a73…ffea17c`), live API only (checked: the bundle
+  has the live address and not the emulator's `10.0.2.2`). Started on the emulator to the Welcome
+  screen without a crash (no login: it uses the live server). Saved as
+  `native-app/SiteVerify-Beta-2.1.0.apk`.
+- The emulator now has the 2.1.0 release build installed; the debug build (for Metro) was
+  replaced. Reinstall the debug APK from `C:\sv\native-app\android\app\build\outputs\apk\debug`
+  (or `npx expo run:android`) before testing against the local backend again.
+- The branch `ocr-bill-reading` is fully merged and can be deleted.
 
 ### 2026-10-10 (later) — Pushed to `main`; native app twin (home)
 

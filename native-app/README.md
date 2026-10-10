@@ -18,7 +18,7 @@ Nothing in the backend or the website changed for it.
 | beta (default) | SiteVerify Beta | `in.sustaniq.siteverify.beta` | Installs **next to** the current app, for side-by-side testing |
 | production (`APP_VARIANT=production`) | SiteVerify | `in.sustaniq.siteverify` | Installs **over** the current Android app (same id, same signing key, higher versionCode 100) |
 
-Version `2.0.0`, versionCode `100` (the browser-based app is at 1.0.1, code 2).
+Version `2.1.0`, versionCode `101` (the browser-based app is at 1.0.1, code 2).
 
 ## What's where
 
@@ -92,6 +92,7 @@ Don't set `EXPO_PUBLIC_API_BASE` for a release build: it must use the live API.
 | Version | Code | Variant | Notes |
 |---|---|---|---|
 | 2.0.0 | 100 | beta | First native build (2026-10-07), 94 MB, signed with the SiteVerify key |
+| 2.1.0 | 101 | beta | Bill reading (OCR), items table, amounts, EDITED marks, History, date picker (2026-10-11) |
 
 ## Signing
 
@@ -121,7 +122,7 @@ Native equivalents, not changes in what the app does:
 - **Dropdowns** (role, Shared Drive) open a native option sheet instead of Chrome's select dialog.
 - **Bill date** opens the phone's own date picker (`@react-native-community/datetimepicker`, a
   native module: adding it needed a new build), like the web's date field does in Chrome.
-- **Profile** shows the app version (`Version 2.0.0`) instead of the website's build date.
+- **Profile** shows the app version (e.g. `Version 2.1.0`) instead of the website's build date.
 - **Saved offline**: after "Send to office" with no signal, the app shows "Saved on this phone"
   even though it can't load the project name; the website goes back to Home in that case.
 - **Frosted glass** is blurred on Android 12 and later; older phones get the same tint without the

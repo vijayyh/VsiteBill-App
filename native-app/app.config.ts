@@ -11,7 +11,7 @@ const NAVY = '#1A3C5E'
 const config: ExpoConfig = {
   name: production ? 'SiteVerify' : 'SiteVerify Beta',
   slug: 'siteverify',
-  version: '2.0.0',
+  version: '2.1.0',
   orientation: 'portrait',
   scheme: 'siteverify',
   userInterfaceStyle: 'light',
@@ -20,7 +20,7 @@ const config: ExpoConfig = {
   android: {
     package: production ? 'in.sustaniq.siteverify' : 'in.sustaniq.siteverify.beta',
     // Above the current Android app's versionCode (2), so the production variant can replace it.
-    versionCode: 100,
+    versionCode: 101,
     adaptiveIcon: {
       foregroundImage: './assets/android-icon-foreground.png',
       monochromeImage: './assets/android-icon-monochrome.png',

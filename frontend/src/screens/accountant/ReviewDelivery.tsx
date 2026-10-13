@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillHistory } from '../../components/BillHistory'
+import { PaymentCard } from '../../components/PaymentCard'
 import { AmountsCard, ItemsEditor, MarkedLabel, NumbersOnly, ReadMark, SectionLabel } from '../../components/BillParts'
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
@@ -45,7 +46,9 @@ export function ReviewDelivery() {
     error: deliveryError,
     refetch: refetchDelivery,
   } = useApiGet<{ delivery: Delivery }>(`/api/deliveries/${deliveryId}`)
-  const { data: historyData } = useApiGet<{ changes: BillHistoryEntry[] }>(`/api/deliveries/${deliveryId}/changes`)
+  const { data: historyData, refetch: refetchHistory } = useApiGet<{ changes: BillHistoryEntry[] }>(
+    `/api/deliveries/${deliveryId}/changes`,
+  )
   const navigate = useNavigate()
 
   const [vendor, setVendor] = useState('')
@@ -260,6 +263,14 @@ export function ReviewDelivery() {
             </div>
           </div>
         </Card>
+
+        <PaymentCard
+          delivery={delivery}
+          onApproved={() => {
+            refetchDelivery()
+            refetchHistory()
+          }}
+        />
 
         <div>
           <SectionLabel title="Bill" />

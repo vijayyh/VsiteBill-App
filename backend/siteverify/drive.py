@@ -6,6 +6,10 @@ just the files/folders it creates itself, nothing else in the connected
 account's Drive. No per-accountant Google login: every "Save to Drive" click,
 regardless of which accountant is logged in, writes through the single
 account an admin connected once in the Admin panel.
+
+The same connection also asks for Google Sheets access, for the payment sheet
+(payment_sheet.py): a sheet made by hand isn't one of "the app's own files", so
+drive.file alone can't write to it.
 """
 
 import io
@@ -38,10 +42,13 @@ SCOPES = [
     # Drive *metadata* (names, structure, shared drives) without granting
     # access to file contents beyond what drive.file already allows.
     "https://www.googleapis.com/auth/drive.metadata.readonly",
+    # The payment sheet (payment_sheet.py): adding rows to a sheet the office made by hand.
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/userinfo.email",
     "openid",
 ]
 ROOT_FOLDER_NAME = "SiteVerify Bills"
+CLOCK_SKEW_SECONDS = 30
 FOLDER_MIME = "application/vnd.google-apps.folder"
 
 
@@ -93,8 +100,9 @@ def exchange_code(code: str, state: str) -> GoogleDriveAccount:
 
     flow = _flow()
     flow.code_verifier = pending.code_verifier
-    flow.fetch_token(code=code)
+    token = flow.fetch_token(code=code)
     creds = flow.credentials
+    granted = token.get("scope") or creds.scopes or []
 
     db.session.delete(pending)
     db.session.commit()
@@ -105,13 +113,19 @@ def exchange_code(code: str, state: str) -> GoogleDriveAccount:
     email = "unknown"
     if creds.id_token:
         claims = google_id_token.verify_oauth2_token(
-            creds.id_token, google_requests.Request(), current_app.config["GOOGLE_CLIENT_ID"]
+            creds.id_token,
+            google_requests.Request(),
+            current_app.config["GOOGLE_CLIENT_ID"],
+            # Google stamps the token with its own clock: a server clock a few seconds behind
+            # would otherwise reject it as "used too early".
+            clock_skew_in_seconds=CLOCK_SKEW_SECONDS,
         )
         email = claims.get("email", "unknown")
 
     account = get_account() or GoogleDriveAccount(connected_by_id=connected_by_id)
     account.email = email
     account.refresh_token = creds.refresh_token
+    account.scopes = granted if isinstance(granted, str) else " ".join(granted)
     account.connected_by_id = connected_by_id
     account.connected_at = datetime.now(timezone.utc)
     account.root_folder_id = None  # in case of a scope change: re-derive it below
@@ -137,12 +151,9 @@ def disconnect() -> None:
         db.session.commit()
 
 
-def _service():
-    account = get_account()
-    if account is None:
-        raise DriveNotConnected("No Google account connected yet")
-
-    creds = Credentials(
+def credentials(account: GoogleDriveAccount) -> Credentials:
+    """Credentials for calling Google as the connected account (Drive here, Sheets in payment_sheet.py)."""
+    return Credentials(
         token=None,
         refresh_token=account.refresh_token,
         token_uri="https://oauth2.googleapis.com/token",
@@ -153,7 +164,13 @@ def _service():
         # them on refresh makes Google reject the request with "invalid_scope"
         # if it doesn't match exactly (e.g. right after adding a new scope).
     )
-    return build("drive", "v3", credentials=creds)
+
+
+def _service():
+    account = get_account()
+    if account is None:
+        raise DriveNotConnected("No Google account connected yet")
+    return build("drive", "v3", credentials=credentials(account))
 
 
 def _shared_drive_kwargs(account: GoogleDriveAccount) -> dict:

@@ -124,6 +124,8 @@ class Delivery(db.Model):
     items = db.relationship(
         "DeliveryItem", order_by="DeliveryItem.position", cascade="all, delete-orphan", lazy="selectin"
     )
+    # Set once the office approves the bill for payment (a row in the payment sheet).
+    payment = db.relationship("PaymentApproval", uselist=False, lazy="selectin")
 
     def to_dict(self):
         return {
@@ -144,6 +146,7 @@ class Delivery(db.Model):
             "driveWebViewLink": self.drive_web_view_link,
             "driveSyncedAt": iso_utc(self.drive_synced_at),
             "items": [i.to_dict() for i in self.items],
+            "payment": self.payment.to_dict() if self.payment else None,
             "invoiceNumber": self.invoice_number,
             "billDate": self.bill_date.isoformat() if self.bill_date else None,
             "taxableAmount": self.taxable_amount,
@@ -305,10 +308,16 @@ class GoogleDriveAccount(db.Model):
     root_folder_id = db.Column(db.String(100), nullable=True)
     shared_drive_id = db.Column(db.String(100), nullable=True)
     shared_drive_name = db.Column(db.String(255), nullable=True)
+    # The permissions Google granted, space-separated. Empty for accounts connected before this was
+    # recorded: those need connecting again for anything beyond Drive (the payment sheet).
+    scopes = db.Column(db.Text, nullable=True)
     connected_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     connected_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     connected_by = db.relationship("User")
+
+    def has_scope(self, scope):
+        return scope in (self.scopes or "").split()
 
     def to_dict(self):
         return {
@@ -319,6 +328,89 @@ class GoogleDriveAccount(db.Model):
             "sharedDriveName": self.shared_drive_name,
             "rootFolderUrl": drive_folder_url(self.root_folder_id),
         }
+
+
+class PaymentSheet(db.Model):
+    """Single-row table: the Google Sheet the payment manager pays from (the payment register).
+    The office approves a matched bill for payment and it becomes a row there, written through
+    the Google account connected for Drive."""
+
+    __tablename__ = "payment_sheet"
+
+    id = db.Column(db.Integer, primary_key=True)
+    spreadsheet_id = db.Column(db.String(100), nullable=False)
+    gid = db.Column(db.Integer, nullable=False, default=0)  # which tab
+    tab_title = db.Column(db.String(255), nullable=False)
+    title = db.Column(db.String(255), nullable=False)
+    header_row = db.Column(db.Integer, nullable=False)
+    columns = db.Column(db.JSON, nullable=False, default=dict)  # heading -> 0-based column index
+    next_pay_number = db.Column(db.Integer, nullable=False, default=1)
+    connected_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    connected_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    connected_by = db.relationship("User")
+
+    @property
+    def url(self):
+        return f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/edit#gid={self.gid}"
+
+    def to_dict(self):
+        return {
+            "title": self.title,
+            "tabTitle": self.tab_title,
+            "url": self.url,
+            "connectedBy": self.connected_by.name if self.connected_by else None,
+            "connectedAt": iso_utc(self.connected_at),
+        }
+
+
+class PaymentApproval(db.Model):
+    """A bill approved for payment: what the office entered and where its sheet row is. One per
+    bill; the sheet row is never written again by the app (the payment manager owns it after)."""
+
+    __tablename__ = "payment_approvals"
+
+    id = db.Column(db.Integer, primary_key=True)
+    delivery_id = db.Column(db.Integer, db.ForeignKey("deliveries.id"), nullable=False, unique=True, index=True)
+    pay_id = db.Column(db.String(20), nullable=False)
+    category = db.Column(db.String(40), nullable=False)
+    bank_details = db.Column(db.Text, nullable=True)
+    bill_amount = db.Column(db.Float, nullable=False)
+    amount_on_hold = db.Column(db.Float, nullable=False, default=0)
+    advance = db.Column(db.Float, nullable=False, default=0)
+    tds = db.Column(db.Float, nullable=False, default=0)
+    sheet_row = db.Column(db.Integer, nullable=True)
+    approved_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    approved_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+
+    approved_by = db.relationship("User")
+
+    def to_dict(self):
+        return {
+            "payId": self.pay_id,
+            "category": self.category,
+            "billAmount": self.bill_amount,
+            "amountOnHold": self.amount_on_hold,
+            "advance": self.advance,
+            "tds": self.tds,
+            "payable": round(self.bill_amount - self.amount_on_hold - self.advance - self.tds, 2),
+            "sheetRow": self.sheet_row,
+            "approvedBy": self.approved_by.name if self.approved_by else None,
+            "approvedAt": iso_utc(self.approved_at),
+        }
+
+
+class VendorBankDetails(db.Model):
+    """A vendor's bank details as the office last entered them, to fill in the next approval."""
+
+    __tablename__ = "vendor_bank_details"
+
+    id = db.Column(db.Integer, primary_key=True)
+    vendor_key = db.Column(db.String(200), nullable=False, unique=True)  # lower-case, single spaces
+    vendor = db.Column(db.String(200), nullable=False)
+    bank_details = db.Column(db.Text, nullable=False)
+    updated_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utcnow, onupdate=utcnow)
 
 
 class DriveOAuthState(db.Model):

@@ -7,30 +7,29 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-11 (home machine)_
+_Last updated: 2026-10-13 (home machine)_
 
-**OCR, bill items and the change history are live** (deployed 2026-10-10 at 18:22 UTC). The
-production database was upgraded by the deploy's `flask db upgrade` (d0dc350e48df → e4a27323ee0e
-→ f42778264e05; rehearsed beforehand on a throwaway Postgres). `GOOGLE_VISION_API_KEY` is set on
-vsitebill-api. On the other machine: `git pull`, then `flask db upgrade` in `backend/`.
+**The payment sheet is in `main`** (2026-10-13): the office approves a matched bill for payment and
+it becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register), which colours
+rows by Status for the payment manager. Tested end-to-end on the home PC against the real sheet
+and Drive, then all test data removed. Native app 2.2.0 has it too
+(`native-app/SiteVerify-Beta-2.2.0.apk`, home machine only). On the other machine: `git pull`,
+then `flask db upgrade` in `backend/` (one new migration, 9e1dcf0e6229).
 
-**Render didn't auto-deploy the push** (both services are on "Auto-Deploy: After CI Checks Pass",
-CI passed, but no deploy started and nothing showed in Events). Fixed by "Manual Deploy → Deploy
-latest commit" on `vsitebill-api` and on the static site (the static site is named
-`VsiteBill-App` in the dashboard and sits outside the "VsiteBilll App" project). **Next time
-something is pushed to `main`, check Render's Events**; if no deploy starts again, deploy by hand
-and look at Render's GitHub connection (Account settings → Git providers).
+**Next (the user, on the live site):**
+1. **Admin → Google Drive → Reconnect Google** (the live connection was made before the sheet
+   needed Sheets access), allow every permission including Google Sheets.
+2. **Admin → Payment sheet:** paste the sheet link, Connect sheet. That also sets up the colours,
+   the Status dropdown, frozen headings and the colour key on the sheet.
+3. Replace the Google OAuth client secret (it was pasted into chat on 2026-10-13): Google Cloud →
+   Credentials → SiteVerify client → Add secret → update Render `GOOGLE_CLIENT_SECRET` and the home
+   `backend/.env` → delete the old secret. Same for the Vision key (pasted 2026-10-10).
+4. Install `SiteVerify-Beta-2.2.0.apk` on a phone and check the payment card.
 
-**Next:**
-1. The user tries it on the live site: photograph a bill, check the form fills in. Make sure the
-   Vision key in Render is a **fresh** one (the key pasted into chat on 2026-10-10 must be deleted
-   in Google Cloud).
-2. The browser APK (`android/`) shows the live site, so it has the new form already: check on a phone.
-3. **Native app 2.1.0 is in `main` and built**: `native-app/SiteVerify-Beta-2.1.0.apk`, 50 MB,
-   for modern (arm64) phones; `SiteVerify-Beta-2.1.0-all-chips.apk` (94 MB) also runs on very old
-   32-bit phones (home machine only; APKs aren't in git). Install it on a phone: it updates SiteVerify Beta 2.0.0 (or
-   installs next to the current app) and uses the live server. Check bill reading, the items
-   table, amounts and the History on a real phone.
+**Render didn't auto-deploy pushes on 2026-10-10** (Auto-Deploy "After CI Checks Pass", CI passed,
+no deploy started). Deployed by hand then ("Manual Deploy → Deploy latest commit" on
+`vsitebill-api` and on the static site `VsiteBill-App`). **After every push to `main`, check
+Render's Events**; if no deploy starts, deploy by hand and check Render's GitHub connection.
 
 **State:** `main` is pushed and live.
 The new **native mobile app** (React Native + Expo) was merged into `main` on 2026-10-07, in its
@@ -171,7 +170,7 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 | 5 | Automated tests (pytest) | ✅ Done 2026-10-03 |
 | 6 | CI/CD: GitHub Actions runs tests before deploy | ✅ Done 2026-10-03 (Render setting: see log) |
 | 7 | Monitoring: Sentry, structured logs, uptime checks | Skipped for now |
-| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app 2.1.0 built 2026-10-11 |
+| 8 | OCR on bill photos | ✅ Web app live 2026-10-10; native app 2.1.0 built 2026-10-11 (2.2.0 adds the payment sheet) |
 | 9 | Scaling | ✅ Done 2026-10-03 (see log) |
 
 ---
@@ -179,6 +178,34 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-13 — Payment sheet (Google Sheets) for approved bills (home)
+
+- **What:** on a matched bill the office (or an admin) presses **Approve for payment**: category
+  (Material, Labour, Transport, Equipment hire, Services, Other), bank details (remembered per
+  vendor), amount on hold / advance / TDS (numbers only), payable worked out live. It adds one row
+  to the payment sheet: Pay ID (PAY-0001…, carrying on from the sheet), date, site, category,
+  payee, bank details, amounts, Payable Amount and ⚠ Duplicate Check as sheet formulas, PDF Ref =
+  bill no., View Invoices = link to the bill photo in Drive (saved there first if needed). Status
+  and Pay Receipts are never written. Once per bill; recorded in the bill's History ("payment").
+- **The sheet** is found by its headings (title rows above, any column order). Connecting it
+  (Admin → Payment sheet) also sets rows to colour by Status: yellow new, brown Pending, orange On
+  hold, green Paid + receipt, grey Rejected, red receipt cell for Paid without a receipt; a Status
+  dropdown; frozen headings; a colour-key note. Re-connecting replaces only the app's own rules.
+- **Code:** `backend/siteverify/payment_sheet.py`, `routes/payments.py`; tables `payment_sheet`,
+  `payment_approvals`, `vendor_bank_details`, column `google_drive_account.scopes` (migration
+  9e1dcf0e6229, rehearsed on a throwaway Postgres). The Google connection now asks for the
+  spreadsheets scope and records what was granted; older connections need reconnecting. Web:
+  `PaymentCard`, `PaymentSheetAdmin`; native twins of both.
+- **Fixed:** connecting Google failed when the server clock was a few seconds behind Google's
+  ("Token used too early"); the ID token check now allows 30 s.
+- **Verified:** 160 backend tests (23 for the sheet, with a fake sheet); web lint/build; native
+  tsc/lint; native screens on the emulator. End-to-end on the home PC with the real account
+  (vijay@sustaniq.in) and the real sheet: connect, approve a TEST bill, row 4 correct incl.
+  formulas and a working photo link, colours checked for each status. Then the test row was
+  cleared, the test photo moved to Drive's trash, local test data deleted, and the home PC's
+  Google connection removed (the live one untouched). `backend/.env` at home now has the Google
+  client id/secret for local testing.
 
 ### 2026-10-11 — Native app merged; release APK 2.1.0 (home)
 

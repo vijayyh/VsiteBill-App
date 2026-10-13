@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { AdminShell } from '../../components/AdminShell'
+import { PaymentSheetAdmin } from '../../components/PaymentSheetAdmin'
 import { IconAlertTriangle, IconCheck } from '../../components/icons'
 import { api, useApiGet } from '../../lib/api'
 import type { AdminOverview, DriveStatus, PasswordResetRequest, SharedDrive } from '../../lib/types'
@@ -173,6 +174,8 @@ export function AdminDashboard() {
           </div>
         )}
       </div>
+
+      <PaymentSheetAdmin onReconnect={connectDrive} reconnecting={connecting} />
 
       <div className="grid grid-cols-2 gap-2.5 mb-5">
         <Link to="/admin/users" className="glass rounded-card p-3.5 text-left">

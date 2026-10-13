@@ -18,6 +18,30 @@ export interface ProjectSummary extends Project {
 
 export type DeliveryStatus = 'PENDING' | 'REVIEW' | 'MATCHED'
 
+/** A bill approved for payment: its row in the payment sheet. */
+export interface PaymentApproval {
+  payId: string
+  category: string
+  billAmount: number
+  amountOnHold: number
+  advance: number
+  tds: number
+  payable: number
+  sheetRow: number | null
+  approvedBy: string | null
+  approvedAt: string
+}
+
+/** GET /api/payment-sheet: whether bills can be approved for payment, and where the sheet is. */
+export interface PaymentSheetStatus {
+  googleConnected: boolean
+  googleEmail: string | null
+  /** The connected Google account has allowed Sheets access (accounts connected earlier need reconnecting). */
+  sheetsAllowed: boolean
+  sheet: { title: string; tabTitle: string; url: string; connectedBy: string | null; connectedAt: string } | null
+  categories: string[]
+}
+
 /** One line of goods on a bill. */
 export interface DeliveryItem {
   description: string
@@ -34,6 +58,8 @@ export interface Delivery {
   /** The item names joined: what lists show. */
   item: string
   items: DeliveryItem[]
+  /** Set once the office has approved it for payment (a row in the payment sheet). */
+  payment: PaymentApproval | null
   status: DeliveryStatus
   poNumber: string | null
   invoiceNumber: string | null
@@ -67,8 +93,11 @@ export interface BillChange {
 /** One save of a bill (GET /api/deliveries/<id>/changes; office and admin only). */
 export interface BillHistoryEntry {
   id: number
-  /** "sent": the supervisor sending it, with what they changed from the photo reading. "edited": an office save. */
-  action: 'sent' | 'edited'
+  /**
+   * "sent": the supervisor sending it, with what they changed from the photo reading. "edited": an
+   * office save. "payment": approved for payment (the change's "to" is the Pay ID).
+   */
+  action: 'sent' | 'edited' | 'payment'
   fromReading: boolean
   changes: BillChange[]
   by: { name: string; role: Role }

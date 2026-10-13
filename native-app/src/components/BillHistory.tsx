@@ -5,7 +5,7 @@ import type { Role } from '../lib/session'
 import { colors, glass, ring } from '../lib/theme'
 import type { BillChange, BillHistoryEntry } from '../lib/types'
 import { SectionLabel } from './BillParts'
-import { IconBill, IconCamera, IconPencil } from './icons'
+import { IconBill, IconCamera, IconCheck, IconPencil } from './icons'
 import { T } from './T'
 
 // Same as the web app's bill history (frontend/src/components/BillHistory.tsx).
@@ -18,6 +18,7 @@ function count(n: number, one: string, many: string) {
 
 function summary(entry: BillHistoryEntry) {
   const n = entry.changes.length
+  if (entry.action === 'payment') return `Approved for payment · ${entry.changes[0]?.to ?? ''} added to the payment sheet`
   if (entry.action === 'edited') return `Changed ${count(n, 'value', 'values')}`
   if (!entry.fromReading) return 'Sent · typed in by hand'
   if (n === 0) return 'Sent · kept everything as the photo read it'
@@ -84,7 +85,8 @@ export function BillHistory({ history }: { history: BillHistoryEntry[] | undefin
           </T>
         ) : null}
         {history?.map((entry) => {
-          const Icon = entry.action === 'edited' ? IconPencil : entry.fromReading ? IconCamera : IconBill
+          const Icon =
+            entry.action === 'payment' ? IconCheck : entry.action === 'edited' ? IconPencil : entry.fromReading ? IconCamera : IconBill
           return (
             <View key={entry.id} style={{ flexDirection: 'row', gap: 10 }}>
               <View style={styles.icon}>
@@ -105,7 +107,7 @@ export function BillHistory({ history }: { history: BillHistoryEntry[] | undefin
                 <T size={12} color={colors.inkMuted} style={{ marginTop: 1 }}>
                   {summary(entry)}
                 </T>
-                {entry.changes.length > 0 ? (
+                {entry.action !== 'payment' && entry.changes.length > 0 ? (
                   <View style={{ marginTop: 8, gap: 6 }}>
                     {entry.changes.map((change, i) => (
                       <ChangeLine key={i} change={change} />

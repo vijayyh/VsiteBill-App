@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import { AuthImage } from '../../../../../components/AuthImage'
 import { BillHistory } from '../../../../../components/BillHistory'
+import { PaymentCard } from '../../../../../components/PaymentCard'
 import { AmountsCard, DateField, ItemsEditor, MarkedLabel, NumberField, ReadMark, SectionLabel } from '../../../../../components/BillParts'
 import { StatusBadge } from '../../../../../components/bills'
 import { ActionBar, Frost, FrostBackdrop, FrostScope } from '../../../../../components/Frost'
@@ -261,6 +262,14 @@ export default function ReviewDelivery() {
                   ))}
                 </View>
               </Card>
+
+              <PaymentCard
+                delivery={delivery}
+                onApproved={() => {
+                  deliveryQuery.refetch()
+                  historyQuery.refetch()
+                }}
+              />
 
               <View>
                 <SectionLabel title="Bill" />

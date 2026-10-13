@@ -86,7 +86,7 @@ const warnOutline = 'outline-2 outline-warning-text/70'
  * A box for a number: anything that isn't a digit or the one decimal point is dropped as it's
  * typed or pasted, with a short "Numbers only" under the box when that happens.
  */
-function NumberInput({
+export function NumberInput({
   value,
   onChange,
   className = '',

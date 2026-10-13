@@ -24,16 +24,22 @@ SiteVerify replaces the paper chase:
    and marks it **Matched** or **Flagged** for follow-up, with a note.
 3. The accountant can save any bill to a company **Google Drive** archive, sorted into one folder
    per project and numbered in sequence (`KH-PRJ-014-001-UltraTech-2026-10-02.jpg`).
-4. The **admin** manages user accounts, projects, password resets and the Drive connection, and can
-   see every bill across all projects.
+4. A matched bill is **approved for payment**: it becomes a row in the **payment sheet** (a Google
+   Sheet, the payment register) with its Pay ID, site, category, payee, bank details, amounts held
+   back (on hold, advance, TDS), the payable amount and a link to the bill photo. The payment
+   manager works from the sheet: rows are coloured by Status (yellow = new, brown = Pending, orange
+   = On hold, green = Paid with the receipt attached, grey = Rejected) and they set Paid and attach
+   the payment slip there. The app never writes Status or Pay Receipts.
+5. The **admin** manages user accounts, projects, password resets, the Drive connection and the
+   payment sheet, and can see every bill across all projects.
 
 ## Users and roles
 
 | Role | Can do |
 |---|---|
 | Site supervisor | Pick a project → take/choose a photo → enter bill details → send (offline-capable). Sees all of their own bills (never other supervisors'), and gets an alert when one is flagged or matched. Can't edit or review bills. |
-| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive, and see its history (what the supervisor changed from the photo reading, and every later edit). Open the Drive archive and each project's folder, view-only. |
-| Admin | Overview stats, create users, reset any user's password (or answer a forgot-password request), create projects and edit their name/colour, connect Google Drive (and pick a Shared Drive), view all bills and open any of them (same review screen as the office, with its history). |
+| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive, approve a matched bill for payment (it becomes a row in the payment sheet), and see its history (what the supervisor changed from the photo reading, and every later edit). Open the Drive archive and each project's folder, view-only. |
+| Admin | Overview stats, create users, reset any user's password (or answer a forgot-password request), create projects and edit their name/colour, connect Google Drive (and pick a Shared Drive) and the payment sheet, view all bills and open any of them (same review screen as the office, with its history). |
 
 Login is by phone number + password. There's no SMS or email: "Forgot password" files a request
 that an admin resolves by setting a temporary password.
@@ -46,6 +52,8 @@ Supervisor sends bill ──► PENDING ──► accountant reviews ──┬�
                                                                           mismatch / follow-up)
 MATCHED or FLAGGED bills can be re-opened and changed at any time.
 Any bill can be saved to Google Drive; bills are never deleted by the app.
+A MATCHED bill can be approved for payment once: a row in the payment sheet (later changes to
+the bill don't change that row).
 ```
 
 ## Architecture
@@ -92,7 +100,10 @@ Any bill can be saved to Google Drive; bills are never deleted by the app.
 | `bill_changes` | each save of a bill, only ever added to: who, when, and each value from → to ("sent": what the supervisor changed from the photo reading; "edited": an office/admin save, including status and note) |
 | `ocr_scans` | each reading of a bill photo (all the text found, plus everything read off it and how sure it was), linked to the bill it became once sent, so OCR output can be compared with what the office confirmed |
 | `password_reset_requests` | "forgot password" requests and who resolved them |
-| `google_drive_account` | the single connected Google account (refresh token, root folder, chosen Shared Drive) |
+| `google_drive_account` | the single connected Google account (refresh token, the permissions it granted, root folder, chosen Shared Drive) |
+| `payment_sheet` | the connected payment sheet: spreadsheet id, tab, the heading row and where each column is, the next Pay ID number |
+| `payment_approvals` | a bill approved for payment (one per bill): Pay ID, category, bank details, bill amount, on hold / advance / TDS, its sheet row, who approved it and when |
+| `vendor_bank_details` | each vendor's bank details as last entered, to fill in the next approval |
 | `drive_oauth_state` | short-lived PKCE verifier between "Connect Drive" and Google's callback |
 
 Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
@@ -106,6 +117,8 @@ Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
 | `/api` | `GET /deliveries` (across projects; supervisors get only their own), `POST /projects/<id>/deliveries` (upload), `GET /deliveries/<id>` (supervisors: own only), `PATCH /deliveries/<id>`, `GET /deliveries/<id>/changes` (the bill's history) and `POST /deliveries/<id>/save-to-drive` (accountant + admin) |
 | `/api/notifications` | list, unread count, mark one / all read |
 | `/api/ocr` | `GET /status` (is bill reading set up), `POST /bill` (read a bill photo: vendor, bill no. and date, PO number, the items table and the amounts, each with a confidence) |
+| `/api/payment-sheet` | `GET` (is it set up, where is it, the categories; accountant + admin), `POST` (connect by link: checks the headings, sets up colours and the Status dropdown; admin), `DELETE` (admin) |
+| `/api/deliveries/<id>/payment` | `GET` (the vendor's remembered bank details), `POST` (approve a matched bill for payment: adds its sheet row; accountant + admin) |
 | `/api/office` | `GET /stats` (pending, flagged, matched this month), `GET /drive` (read-only Drive links; accountant + admin) |
 | `/api/admin` | overview, all bills, users (create, reset password), password-reset requests, projects (create, edit), Drive (status, connect, callback, disconnect, shared drives) |
 | `/uploads/<file>` | login-protected photo access (redirects to a signed storage URL) |
@@ -132,7 +145,7 @@ Render dashboard.
 | `DATABASE_URL` | Postgres connection (linked from `vsitebill-db`). Unset locally, which means SQLite |
 | `FLASK_APP` | `app.py`, so `flask db upgrade` can find the app |
 | `JWT_SECRET` | signs login tokens |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google Drive OAuth |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google sign-in for Drive and the payment sheet (the OAuth client also needs the Google Sheets API enabled in its Cloud project) |
 | `FRONTEND_URL` | where the Drive OAuth flow sends the admin back to |
 | `S3_ENDPOINT_URL`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `S3_REGION` | photo storage. Unset locally, which means local disk |
 | `GOOGLE_VISION_API_KEY` | reading bill photos (OCR) with Google Cloud Vision. Unset means the bill form isn't filled in automatically |
@@ -156,6 +169,7 @@ backend/
     ocr.py                  reading bill photos (OCR): Google Vision provider + the bill parser
                             (labels, the goods table by its column headings, taxes and totals)
     bills.py                a bill's items and amounts: checking and storing them, and what a save changed
+    payment_sheet.py        the payment sheet (Google Sheets): connecting it, its colours, a bill's row
     seed.py                 demo accounts + starter projects (first run only)
     routes/                 auth, projects, deliveries, office, admin, ocr
 frontend/

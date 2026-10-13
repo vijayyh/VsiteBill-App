@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser'
 import { useRef, useState } from 'react'
 import { Linking, ScrollView, StyleSheet, View } from 'react-native'
 import { AdminShell } from '../../../components/AdminShell'
+import { PaymentSheetAdmin } from '../../../components/PaymentSheetAdmin'
 import { IconAlertTriangle, IconCheck } from '../../../components/icons'
 import { SelectField } from '../../../components/SelectField'
 import { T } from '../../../components/T'
@@ -198,6 +199,8 @@ export default function AdminOverviewScreen() {
           </View>
         ) : null}
       </View>
+
+      <PaymentSheetAdmin onReconnect={connectDrive} reconnecting={connecting} />
 
       <View style={styles.tiles}>
         <Tile

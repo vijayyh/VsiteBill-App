@@ -1,5 +1,5 @@
 import { SectionLabel } from './BillParts'
-import { IconBill, IconCamera, IconPencil } from './icons'
+import { IconBill, IconCamera, IconCheck, IconPencil } from './icons'
 import { changeLabel, changeValue } from '../lib/bill'
 import { formatDateTime } from '../lib/format'
 import type { Role } from '../lib/session'
@@ -13,6 +13,7 @@ function count(n: number, one: string, many: string) {
 
 function summary(entry: BillHistoryEntry) {
   const n = entry.changes.length
+  if (entry.action === 'payment') return `Approved for payment · ${entry.changes[0]?.to ?? ''} added to the payment sheet`
   if (entry.action === 'edited') return `Changed ${count(n, 'value', 'values')}`
   if (!entry.fromReading) return 'Sent · typed in by hand'
   if (n === 0) return 'Sent · kept everything as the photo read it'
@@ -63,7 +64,8 @@ export function BillHistory({ history }: { history: BillHistoryEntry[] | undefin
           </div>
         )}
         {history?.map((entry) => {
-          const Icon = entry.action === 'edited' ? IconPencil : entry.fromReading ? IconCamera : IconBill
+          const Icon =
+            entry.action === 'payment' ? IconCheck : entry.action === 'edited' ? IconPencil : entry.fromReading ? IconCamera : IconBill
           return (
             <div key={entry.id} className="flex gap-2.5">
               <span className="w-7 h-7 rounded-full bg-info-bg flex items-center justify-center flex-shrink-0">
@@ -78,7 +80,7 @@ export function BillHistory({ history }: { history: BillHistoryEntry[] | undefin
                   <div className="text-[11px] text-ink-faint flex-shrink-0">{formatDateTime(entry.at)}</div>
                 </div>
                 <div className="text-[12px] text-ink-muted mt-px">{summary(entry)}</div>
-                {entry.changes.length > 0 && (
+                {entry.action !== 'payment' && entry.changes.length > 0 && (
                   <ul className="mt-2 flex flex-col gap-1.5">
                     {entry.changes.map((change, i) => (
                       <ChangeLine key={i} change={change} />

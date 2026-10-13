@@ -18,10 +18,9 @@ approving was made safe against repeats (see the session log). Native app **2.3.
 `flask db upgrade` in `backend/` if it hasn't run there since 9e1dcf0e6229.
 
 **Next (the user):**
-1. **The live sheet has bill MRL/26-27/158 twice** (rows 4 and 5, both PAY-0001, from before the
-   fix). The app recorded **row 5** (checked on the live site), so **row 4 is the leftover**: delete
-   it (the app will then say "row 5" for this one bill, one row too low) or clear its cells.
-   Render's logs from 2026-10-13 ~8:49 PM would show why the first try failed.
+1. ~~Duplicate row for bill MRL/26-27/158~~: done 2026-10-13, the leftover row was deleted; the
+   bill's PAY-0001 row is now row 4 (the app still says "row 5" for this one bill, harmless).
+   Render's logs from 2026-10-13 ~8:49 PM would show why its first try failed.
 2. Replace the Google OAuth client secret (it was pasted into chat on 2026-10-13): Google Cloud →
    Credentials → SiteVerify client → Add secret → update Render `GOOGLE_CLIENT_SECRET` and the home
    `backend/.env` → delete the old secret. Same for the Vision key (pasted 2026-10-10).
@@ -205,7 +204,8 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   TEST bills and a placeholder Google connection, all deleted afterwards. Native 2.3.0 (code 103).
 - **Shipped:** pushed to `main` (983d730); CI green; the live website has the tabs (checked in the
   browser with the Office / Accountant demo role: tabs, approved card, green dot). The live bill
-  MRL/26-27/158 is recorded as PAY-0001 in row 5. APK 2.3.0 built: arm64, 50 MB, SiteVerify key
+  MRL/26-27/158 is recorded as PAY-0001 in row 5; its leftover duplicate row 4 was then deleted
+  from the sheet (at the user's request), so its row is now row 4. APK 2.3.0 built: arm64, 50 MB, SiteVerify key
   (SHA-256 checked), live API, `native-app/SiteVerify-Beta-2.3.0.apk` (home machine).
 - **Release build gotchas** (now in `native-app/README.md`): `robocopy /MIR` deletes
   `android\local.properties`, so set `ANDROID_HOME`; quote Gradle's `-P…` options in PowerShell or

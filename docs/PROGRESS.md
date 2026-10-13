@@ -14,7 +14,8 @@ it becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register)
 rows by Status for the payment manager. Tested end-to-end on the home PC against the real sheet
 and Drive, then all test data removed. Native app 2.2.0 has it too
 (`native-app/SiteVerify-Beta-2.2.0.apk`, home machine only). On the other machine: `git pull`,
-then `flask db upgrade` in `backend/` (one new migration, 9e1dcf0e6229).
+then `flask db upgrade` in `backend/` (one new migration, 9e1dcf0e6229). **Live since
+2026-10-13**: Render deployed 854d44f by itself (API and website both checked; the migration ran).
 
 **Next (the user, on the live site):**
 1. **Admin → Google Drive → Reconnect Google** (the live connection was made before the sheet
@@ -27,7 +28,7 @@ then `flask db upgrade` in `backend/` (one new migration, 9e1dcf0e6229).
 4. Install `SiteVerify-Beta-2.2.0.apk` on a phone and check the payment card.
 
 **Render didn't auto-deploy pushes on 2026-10-10** (Auto-Deploy "After CI Checks Pass", CI passed,
-no deploy started). Deployed by hand then ("Manual Deploy → Deploy latest commit" on
+no deploy started; on 2026-10-13 it did deploy by itself). Deployed by hand then ("Manual Deploy → Deploy latest commit" on
 `vsitebill-api` and on the static site `VsiteBill-App`). **After every push to `main`, check
 Render's Events**; if no deploy starts, deploy by hand and check Render's GitHub connection.
 
@@ -206,6 +207,10 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   cleared, the test photo moved to Drive's trash, local test data deleted, and the home PC's
   Google connection removed (the live one untouched). `backend/.env` at home now has the Google
   client id/secret for local testing.
+- **Shipped:** pushed to `main` (854d44f); CI green; Render deployed both services by itself
+  (checked: the live website has the payment card, the live API answers `/api/payment-sheet`).
+  Native **2.2.0** (code 102) release APK built, arm64 only, 50 MB, signed with the SiteVerify key
+  (SHA-256 checked), uses the live API: `native-app/SiteVerify-Beta-2.2.0.apk` (home machine).
 
 ### 2026-10-11 — Native app merged; release APK 2.1.0 (home)
 

@@ -159,6 +159,11 @@ def _append(spreadsheet_id, cell_range, row):
     return int(match.group(1)) if match else None
 
 
+def _clear(spreadsheet_id, ranges):
+    """Blanks cells: ["'Sheet1'!A7", …]."""
+    _call(_service().spreadsheets().values().batchClear(spreadsheetId=spreadsheet_id, body={"ranges": ranges}))
+
+
 def _update(spreadsheet_id, cells):
     """Sets formulas: {"K7": "=G7-H7", …}."""
     data = [{"range": cell, "values": [[value]]} for cell, value in cells.items()]
@@ -202,8 +207,7 @@ def connect(link, admin):
         )
 
     # Carry on the Pay ID numbering from what the sheet already holds.
-    pay_ids = _read(spreadsheet_id, f"{quoted}!{_letter(columns[PAY_ID])}{header_row + 1}:{_letter(columns[PAY_ID])}")
-    numbers = [int(m.group(1)) for row in pay_ids if row for m in [re.match(r"PAY-(\d+)$", str(row[0]))] if m]
+    numbers = _pay_numbers(spreadsheet_id, quoted, columns, header_row)
 
     sheet = get_sheet() or PaymentSheet(connected_by_id=admin.id)
     sheet.spreadsheet_id = spreadsheet_id
@@ -360,6 +364,29 @@ def disconnect():
 def _text(value):
     # A leading apostrophe keeps text as text ("2025/1" would otherwise become a date).
     return "'" + value if value else ""
+
+
+def _pay_numbers(spreadsheet_id, quoted, columns, header_row):
+    """The numbers of the Pay IDs in the sheet (PAY-0007 → 7)."""
+    pay_ids = _read(spreadsheet_id, f"{quoted}!{_letter(columns[PAY_ID])}{header_row + 1}:{_letter(columns[PAY_ID])}")
+    return [int(m.group(1)) for row in pay_ids if row for m in [re.match(r"PAY-(\d+)$", str(row[0]))] if m]
+
+
+def next_pay_number(sheet: PaymentSheet) -> int:
+    """The next Pay ID's number: the app's own count, or past the highest Pay ID in the sheet if that's
+    higher (left by an approval that wrote its row but stopped before it was saved), so no Pay ID is
+    ever used twice."""
+    quoted = "'" + sheet.tab_title.replace("'", "''") + "'"
+    used = _pay_numbers(sheet.spreadsheet_id, quoted, sheet.columns, sheet.header_row)
+    return max([sheet.next_pay_number, *(n + 1 for n in used)])
+
+
+def clear_row(sheet: PaymentSheet, number: int):
+    """Blanks the cells the app wrote in a row, for an approval that failed after writing it (the
+    payment manager's columns are left alone)."""
+    quoted = "'" + sheet.tab_title.replace("'", "''") + "'"
+    ours = [index for name, index in sheet.columns.items() if name not in (STATUS, RECEIPTS)]
+    _clear(sheet.spreadsheet_id, [f"{quoted}!{_letter(index)}{number}" for index in sorted(ours)])
 
 
 def add_bill(delivery: Delivery, approval):

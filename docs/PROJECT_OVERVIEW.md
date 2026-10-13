@@ -38,7 +38,7 @@ SiteVerify replaces the paper chase:
 | Role | Can do |
 |---|---|
 | Site supervisor | Pick a project → take/choose a photo → enter bill details → send (offline-capable). Sees all of their own bills (never other supervisors'), and gets an alert when one is flagged or matched. Can't edit or review bills. |
-| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill, edit details, flag or match it, save it to Drive, approve a matched bill for payment (it becomes a row in the payment sheet), and see its history (what the supervisor changed from the photo reading, and every later edit). Open the Drive archive and each project's folder, view-only. |
+| Office / accountant | Dashboard with Pending / Flagged / Matched-this-month counts. Per-project gallery (All / Pending / Flagged / Matched). Review a bill (two tabs: Bill and Payment), edit details, flag or match it, save it to Drive, approve a matched bill for payment on the Payment tab (it becomes a row in the payment sheet), and see its history (what the supervisor changed from the photo reading, and every later edit). Open the Drive archive and each project's folder, view-only. |
 | Admin | Overview stats, create users, reset any user's password (or answer a forgot-password request), create projects and edit their name/colour, connect Google Drive (and pick a Shared Drive) and the payment sheet, view all bills and open any of them (same review screen as the office, with its history). |
 
 Login is by phone number + password. There's no SMS or email: "Forgot password" files a request

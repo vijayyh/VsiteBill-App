@@ -2,17 +2,22 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { IconBack } from './icons'
 
-/** Back-button header for inner screens. Frosted and pinned to the top while the page scrolls. */
+/**
+ * Back-button header for inner screens. Frosted and pinned to the top while the page scrolls, with
+ * anything passed as children (a screen's tabs) pinned under it.
+ */
 export function ScreenHeader({
   backTo,
   title,
   subtitle,
   action,
+  children,
 }: {
   backTo: string
   title: string
   subtitle?: string
   action?: ReactNode
+  children?: ReactNode
 }) {
   return (
     <div className="sticky top-0 z-10 flex-shrink-0 px-3 pt-3 pb-2">
@@ -30,6 +35,7 @@ export function ScreenHeader({
         </div>
         {action && <div className="flex-shrink-0 pr-1.5">{action}</div>}
       </div>
+      {children && <div className="mt-2">{children}</div>}
     </div>
   )
 }

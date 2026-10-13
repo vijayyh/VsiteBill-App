@@ -9,23 +9,23 @@ The running record of what's been done and what's next, so work can continue on 
 
 _Last updated: 2026-10-13 (home machine)_
 
-**The payment sheet is in `main`** (2026-10-13): the office approves a matched bill for payment and
-it becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register), which colours
-rows by Status for the payment manager. Tested end-to-end on the home PC against the real sheet
-and Drive, then all test data removed. Native app 2.2.0 has it too
-(`native-app/SiteVerify-Beta-2.2.0.apk`, home machine only). On the other machine: `git pull`,
-then `flask db upgrade` in `backend/` (one new migration, 9e1dcf0e6229). **Live since
-2026-10-13**: Render deployed 854d44f by itself (API and website both checked; the migration ran).
+**The payment sheet is live** (2026-10-13): the office approves a matched bill for payment and it
+becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register), which colours rows
+by Status for the payment manager. The user reconnected Google and connected the sheet on the live
+site the same day. Later that day the review screen got two tabs (**Bill** and **Payment**), and
+approving was made safe against repeats (see the session log). Native app **2.3.0** has both
+(`native-app/SiteVerify-Beta-2.3.0.apk`, home machine only). On the other machine: `git pull`, then
+`flask db upgrade` in `backend/` if it hasn't run there since 9e1dcf0e6229.
 
-**Next (the user, on the live site):**
-1. **Admin → Google Drive → Reconnect Google** (the live connection was made before the sheet
-   needed Sheets access), allow every permission including Google Sheets.
-2. **Admin → Payment sheet:** paste the sheet link, Connect sheet. That also sets up the colours,
-   the Status dropdown, frozen headings and the colour key on the sheet.
-3. Replace the Google OAuth client secret (it was pasted into chat on 2026-10-13): Google Cloud →
+**Next (the user):**
+1. **The live sheet has bill MRL/26-27/158 twice** (rows 4 and 5, both PAY-0001, from before the
+   fix). Open that bill on the live site → Payment tab: it names the row the app recorded
+   ("row 4 in the sheet"); clear the other row's cells. If it isn't approved at all, clear both and
+   approve it again. Render's logs from 2026-10-13 evening would show why the first try failed.
+2. Replace the Google OAuth client secret (it was pasted into chat on 2026-10-13): Google Cloud →
    Credentials → SiteVerify client → Add secret → update Render `GOOGLE_CLIENT_SECRET` and the home
    `backend/.env` → delete the old secret. Same for the Vision key (pasted 2026-10-10).
-4. Install `SiteVerify-Beta-2.2.0.apk` on a phone and check the payment card.
+3. Install `SiteVerify-Beta-2.3.0.apk` on a phone and check the Bill / Payment tabs.
 
 **Render didn't auto-deploy pushes on 2026-10-10** (Auto-Deploy "After CI Checks Pass", CI passed,
 no deploy started; on 2026-10-13 it did deploy by itself). Deployed by hand then ("Manual Deploy → Deploy latest commit" on
@@ -179,6 +179,30 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-13 (evening) — Bill / Payment tabs; approving made safe against repeats (home)
+
+- **Found on the live sheet:** one bill added twice, both rows PAY-0001. Most likely the first try
+  wrote its row and then failed before the approval was saved (so the Pay ID count didn't move),
+  and the retry wrote it again. The exact error wasn't seen (Render's logs weren't open).
+- **Fixed** (`routes/payments.py`, `payment_sheet.py`): the Pay ID is past the highest one already
+  in the sheet (`next_pay_number`), so none is ever used twice; if saving fails after the row is
+  written, the app's cells in that row are blanked again (`clear_row`); approvals take the sheet's
+  row lock with `populate_existing` and check again for an approval once they hold it; the bill is
+  locked `FOR NO KEY UPDATE` so a second tap waits and gets 409 (plain `FOR UPDATE` deadlocked
+  against the approval's foreign-key check: found on Postgres); the approval is flushed before the
+  sheet is written. Both apps also ignore a second tap on "Add to payment sheet".
+- **Review screen tabs** (web `ReviewDelivery` + native twin): a **Bill | Payment** switch pinned
+  under the header (`PageTabs` in `ui.tsx`, passed as `ScreenHeader` children). Bill: photo,
+  quantity check, details, items, amounts, note, history, with Flag / Match. Payment: the approval
+  form straight away (Cancel → Bill), the approved card with a green dot on the tab, or "only a
+  matched bill…" for other bills.
+- **Verified:** 164 backend tests (4 new: second tap, Pay ID never reused, Pay ID already in the
+  sheet, failure after the write; each fails on the old code). The same cases on a throwaway
+  Postgres with a slow fake sheet, three clean runs. Web lint (same 29 old warnings) and build;
+  native tsc and lint. Tabs, form, Cancel, the approved and not-matched states and a double tap
+  (one request) checked in the browser and on the emulator against the local backend with two
+  TEST bills and a placeholder Google connection, all deleted afterwards. Native 2.3.0 (code 103).
 
 ### 2026-10-13 — Payment sheet (Google Sheets) for approved bills (home)
 

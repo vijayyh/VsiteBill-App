@@ -1,6 +1,7 @@
 import re
 
 import pytest
+from sqlalchemy.orm import Session
 
 from siteverify import drive, payment_sheet
 from siteverify.extensions import db
@@ -45,6 +46,14 @@ class FakeSheet:
     def update(self, spreadsheet_id, cells):
         self.formulas.update(cells)
 
+    def clear(self, spreadsheet_id, ranges):
+        for cell in ranges:
+            letter, number = re.search(r"!([A-Z]+)(\d+)$", cell).groups()
+            row, index = self.rows[int(number)], ord(letter) - ord("A")
+            if index < len(row):
+                row[index] = ""
+            self.formulas.pop(cell, None)
+
     def conditional_formats(self, spreadsheet_id, gid):
         return list(self.rules)
 
@@ -66,6 +75,7 @@ def sheet(app, monkeypatch):
     monkeypatch.setattr(payment_sheet, "_read", fake.read)
     monkeypatch.setattr(payment_sheet, "_append", fake.append)
     monkeypatch.setattr(payment_sheet, "_update", fake.update)
+    monkeypatch.setattr(payment_sheet, "_clear", fake.clear)
     monkeypatch.setattr(payment_sheet, "_conditional_formats", fake.conditional_formats)
     monkeypatch.setattr(payment_sheet, "_batch", fake.batch)
 
@@ -73,6 +83,7 @@ def sheet(app, monkeypatch):
         delivery.drive_file_id = f"file{delivery.id}"
         delivery.drive_web_view_link = f"https://drive.google.com/file/d/file{delivery.id}/view"
         db.session.commit()
+        return delivery
 
     monkeypatch.setattr(drive, "upload_delivery_photo", fake_upload)
     with app.app_context():
@@ -209,6 +220,91 @@ def test_a_bill_is_approved_only_once(client, login, sheet):
     assert res.status_code == 409
     assert "PAY-0001" in res.get_json()["error"]
     assert len([n for n in sheet.rows if n > 3]) == 1
+
+
+def meanwhile_another_request(monkeypatch, sheet, approves):
+    """Just after this request has checked the bill and read the payment sheet, another request
+    approves `approves` (a bill id) and commits, on its own database connection: what a second tap
+    on Approve does."""
+    get_sheet = payment_sheet.get_sheet
+
+    def then_another_request():
+        found = get_sheet()
+        monkeypatch.setattr(payment_sheet, "get_sheet", get_sheet)  # only the first time
+        with Session(db.engine) as other:
+            register = other.query(PaymentSheet).one()
+            pay_id = f"PAY-{register.next_pay_number:04d}"
+            other.add(PaymentApproval(delivery_id=approves, pay_id=pay_id, category="Material", bill_amount=711450, approved_by_id=3))
+            register.next_pay_number += 1
+            other.commit()
+        sheet.append(None, None, [pay_id])
+        return found
+
+    monkeypatch.setattr(payment_sheet, "get_sheet", then_another_request)
+
+
+def in_drive(client, login, bill):
+    """Saves the bill to Drive first, so approving it has no Drive step in between."""
+    assert client.post(f"/api/deliveries/{bill['id']}/save-to-drive", headers=login("accountant")).status_code == 200
+    return bill
+
+
+def test_a_second_tap_on_approve_adds_no_second_row(app, client, login, sheet, monkeypatch):
+    connect(client, login)
+    bill = in_drive(client, login, matched_bill(client, login))
+    meanwhile_another_request(monkeypatch, sheet, approves=bill["id"])
+    res = approve(client, login, bill)
+    assert res.status_code == 409
+    assert [sheet.rows[n][0] for n in sheet.rows if n > 3] == ["PAY-0001"]  # only the other request's row
+    with app.app_context():
+        assert PaymentApproval.query.count() == 1
+        assert PaymentSheet.query.one().next_pay_number == 2
+
+
+def test_a_pay_id_is_never_used_twice(app, client, login, sheet, monkeypatch):
+    connect(client, login)
+    other_bill = matched_bill(client, login)
+    bill = in_drive(client, login, matched_bill(client, login))
+    meanwhile_another_request(monkeypatch, sheet, approves=other_bill["id"])
+    res = approve(client, login, bill)
+    assert res.get_json()["delivery"]["payment"]["payId"] == "PAY-0002"
+    assert [sheet.rows[n][0] for n in sheet.rows if n > 3] == ["PAY-0001", "PAY-0002"]
+    with app.app_context():
+        assert PaymentSheet.query.one().next_pay_number == 3
+
+
+def test_a_pay_id_already_in_the_sheet_is_never_used_again(app, client, login, sheet):
+    connect(client, login)
+    bill = matched_bill(client, login)
+    # An earlier try wrote PAY-0001 into the sheet but stopped before the approval was saved.
+    sheet.append(None, None, ["PAY-0001", "2026-10-13"])
+    assert approve(client, login, bill).get_json()["delivery"]["payment"]["payId"] == "PAY-0002"
+    with app.app_context():
+        assert PaymentSheet.query.one().next_pay_number == 3
+
+
+def test_if_saving_fails_after_the_row_is_written_the_row_is_taken_out(app, client, login, sheet, monkeypatch):
+    from siteverify.routes import payments
+
+    connect(client, login)
+    bill = matched_bill(client, login)
+
+    vendor_key = payments._vendor_key
+
+    def broken(vendor):  # something after the sheet write fails
+        raise RuntimeError("database went away")
+
+    monkeypatch.setattr(payments, "_vendor_key", broken)
+    res = approve(client, login, bill)
+    assert res.status_code == 500
+    assert "Try again" in res.get_json()["error"]
+    assert not any(sheet.rows[4][:12]) and sheet.formulas == {}  # the row is blank again
+    with app.app_context():
+        assert PaymentApproval.query.count() == 0
+        assert PaymentSheet.query.one().next_pay_number == 1
+
+    monkeypatch.setattr(payments, "_vendor_key", vendor_key)
+    assert approve(client, login, bill).get_json()["delivery"]["payment"]["payId"] == "PAY-0001"
 
 
 def test_only_matched_bills_with_a_total_can_be_approved(client, login, sheet):

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NumberInput, SectionLabel } from './BillParts'
 import { IconCheck } from './icons'
 import { btnPrimary, btnSecondary } from './ui'
@@ -11,13 +11,21 @@ const box =
   'w-full rounded-[12px] glass-strong px-3 py-2.5 text-[14px] text-ink placeholder:text-ink-faint outline-solid outline-0 outline-transparent focus:outline-2 focus:outline-accent/40'
 
 /**
- * Approving a matched bill for payment: it becomes a row in the payment sheet the payment manager
- * pays from. Once approved, the card shows its Pay ID and what's payable; the sheet row is never
- * written again by the app.
+ * The review screen's Payment tab. Approving a matched bill for payment makes it a row in the
+ * payment sheet the payment manager pays from. Once approved, the card shows its Pay ID and what's
+ * payable; the sheet row is never written again by the app.
  */
-export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onApproved: () => void }) {
+export function PaymentCard({
+  delivery,
+  onApproved,
+  onCancel,
+}: {
+  delivery: Delivery
+  onApproved: () => void
+  /** Leaves the form (back to the bill). */
+  onCancel: () => void
+}) {
   const { data: status } = useApiGet<PaymentSheetStatus>('/api/payment-sheet')
-  const [open, setOpen] = useState(false)
   const [category, setCategory] = useState('')
   const [bankDetails, setBankDetails] = useState('')
   const [hold, setHold] = useState('')
@@ -26,15 +34,44 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
+  // Set at once (state only after a redraw), so a quick second tap can't send the bill twice.
+  const sending = useRef(false)
 
   const payment = delivery.payment
-  if (!payment && delivery.status !== 'MATCHED') return null
+  const approvable = !payment && delivery.status === 'MATCHED'
+
+  // The vendor's bank details as last entered fill in the form.
+  useEffect(() => {
+    if (!approvable) return
+    let current = true
+    api
+      .get<{ bankDetails: string }>(`/api/deliveries/${delivery.id}/payment`)
+      .then((defaults) => current && setBankDetails((typed) => typed || defaults.bankDetails))
+      .catch(() => {
+        // Without the remembered details the form still works: they're typed in.
+      })
+    return () => {
+      current = false
+    }
+  }, [approvable, delivery.id])
 
   const sheetLink = status?.sheet && (
     <a href={status.sheet.url} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-accent">
       Open payment sheet ↗
     </a>
   )
+
+  if (!payment && !approvable) {
+    return (
+      <div>
+        <SectionLabel title="Payment" />
+        <div className="glass rounded-[18px] p-4 text-[12.5px] text-ink-muted leading-relaxed">
+          Only a matched bill is approved for payment. Check it on the Bill tab and confirm the match, then
+          approve it here.
+        </div>
+      </div>
+    )
+  }
 
   if (payment) {
     const held = payment.amountOnHold + payment.advance + payment.tds
@@ -88,21 +125,13 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
   const held = (toNumber(hold) ?? 0) + (toNumber(advance) ?? 0) + (toNumber(tds) ?? 0)
   const payable = total == null ? null : Math.round((total - held) * 100) / 100
 
-  async function openForm() {
-    setOpen(true)
-    try {
-      const defaults = await api.get<{ bankDetails: string }>(`/api/deliveries/${delivery.id}/payment`)
-      setBankDetails((current) => current || defaults.bankDetails)
-    } catch {
-      // Without the remembered details the form still works: they're typed in.
-    }
-  }
-
   async function approve() {
     if (!category) {
       setShowErrors(true)
       return
     }
+    if (sending.current) return
+    sending.current = true
     setSaving(true)
     setError(null)
     try {
@@ -113,35 +142,27 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
         advance,
         tds,
       })
-      setOpen(false)
       onApproved()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server. Try again.')
     } finally {
+      sending.current = false
       setSaving(false)
     }
   }
 
   return (
     <div>
-      <SectionLabel title="Payment" right={sheetLink} />
+      <SectionLabel title="Approve for payment" right={sheetLink} />
       <div className="glass rounded-[18px] p-4">
         {!status && <div className="text-[12.5px] text-ink-muted">Loading…</div>}
         {blocker && <div className="text-[12.5px] text-ink-muted leading-relaxed">{blocker}</div>}
 
-        {status && !blocker && !open && (
-          <>
+        {status && !blocker && total != null && (
+          <div className="flex flex-col gap-3.5">
             <div className="text-[12.5px] text-ink-muted leading-relaxed">
               Approving adds this bill to the payment sheet for the payment manager.
             </div>
-            <button type="button" onClick={openForm} className={`${btnPrimary} w-full py-3 text-[14px] mt-3`}>
-              Approve for payment
-            </button>
-          </>
-        )}
-
-        {status && !blocker && open && total != null && (
-          <div className="flex flex-col gap-3.5">
             <div>
               <div className="text-[11px] font-semibold text-label mb-1.5 ml-1">Category</div>
               <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Category">
@@ -217,7 +238,7 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={onCancel}
                 disabled={saving}
                 className={`${btnSecondary} flex-1 py-3 text-[13.5px]`}
               >

@@ -7,7 +7,7 @@ import { AmountsCard, ItemsEditor, MarkedLabel, NumbersOnly, ReadMark, SectionLa
 import { PhotoViewer } from '../../components/PhotoViewer'
 import { ScreenHeader } from '../../components/ScreenHeader'
 import { StatusBadge } from '../../components/StatusBadge'
-import { Card, Field, btnPrimary, btnSecondary } from '../../components/ui'
+import { Card, Field, PageTabs, btnPrimary, btnSecondary, type TabOption } from '../../components/ui'
 import { IconAlertTriangle, IconCamera, IconCheck, IconClipboardCheck, IconCloud } from '../../components/icons'
 import { api, ApiError, useApiGet } from '../../lib/api'
 import {
@@ -28,6 +28,8 @@ import {
 } from '../../lib/bill'
 import { formatDateTime } from '../../lib/format'
 import type { BillHistoryEntry, Delivery, Project } from '../../lib/types'
+
+type Tab = 'bill' | 'payment'
 
 export function ReviewDelivery() {
   const { projectId = '', deliveryId = '' } = useParams()
@@ -66,6 +68,8 @@ export function ReviewDelivery() {
   const [viewerOpen, setViewerOpen] = useState(false)
   const [savingToDrive, setSavingToDrive] = useState(false)
   const [driveError, setDriveError] = useState<string | null>(null)
+  // The bill and its payment are two tabs, so the payment form isn't more scrolling under the bill.
+  const [tab, setTab] = useState<Tab>('bill')
 
   const delivery = deliveryData?.delivery
   const project = projectData?.project
@@ -156,6 +160,16 @@ export function ReviewDelivery() {
     }
   }
 
+  function showTab(next: Tab) {
+    setTab(next)
+    window.scrollTo({ top: 0 })
+  }
+  const tabs: TabOption<Tab>[] = [
+    { key: 'bill', label: 'Bill' },
+    // A green dot once it's in the payment sheet.
+    { key: 'payment', label: 'Payment', dot: delivery.payment ? 'bg-success-text' : undefined },
+  ]
+
   // Until the PO's ordered quantity is entered there's nothing to compare against.
   const comparable = orderedQty.trim() !== '' && deliveredTotal !== null
   const tone = !comparable
@@ -171,9 +185,22 @@ export function ReviewDelivery() {
         title="Review bill"
         subtitle={`${project.code} · ${project.name}`}
         action={<StatusBadge status={delivery.status} />}
-      />
+      >
+        <PageTabs tabs={tabs} value={tab} onChange={showTab} />
+      </ScreenHeader>
 
-      <div className="flex-grow px-5 pt-2 pb-4 flex flex-col gap-4">
+      <div className="flex-grow px-5 pt-2 pb-4 flex flex-col gap-4" hidden={tab !== 'payment'}>
+        <PaymentCard
+          delivery={delivery}
+          onApproved={() => {
+            refetchDelivery()
+            refetchHistory()
+          }}
+          onCancel={() => showTab('bill')}
+        />
+      </div>
+
+      <div className="flex-grow px-5 pt-2 pb-4 flex flex-col gap-4" hidden={tab !== 'bill'}>
         <Card className="p-1.5">
           <button
             type="button"
@@ -264,14 +291,6 @@ export function ReviewDelivery() {
           </div>
         </Card>
 
-        <PaymentCard
-          delivery={delivery}
-          onApproved={() => {
-            refetchDelivery()
-            refetchHistory()
-          }}
-        />
-
         <div>
           <SectionLabel title="Bill" />
           <div className="flex flex-col gap-3.5">
@@ -360,7 +379,7 @@ export function ReviewDelivery() {
         <BillHistory history={historyData?.changes} />
       </div>
 
-      <div className="sticky bottom-0 z-10 px-3 pb-[calc(0.75rem+var(--safe-bottom))] pt-2">
+      <div className="sticky bottom-0 z-10 px-3 pb-[calc(0.75rem+var(--safe-bottom))] pt-2" hidden={tab !== 'bill'}>
         <div className="glass-strong rounded-[24px] p-2.5 flex flex-col gap-2">
           {showErrors && missingFields.length > 0 && (
             <div className="text-[12px] font-semibold text-warning-text text-center pt-1">

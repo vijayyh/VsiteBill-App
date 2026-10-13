@@ -1,6 +1,7 @@
 import re
 
 from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy.exc import IntegrityError
 
 from .. import bills, drive, payment_sheet
 from ..auth import require_role
@@ -69,7 +70,11 @@ def payment_defaults(delivery_id):
 @require_role("accountant", "admin")
 def approve_payment(delivery_id):
     """Approves a matched bill for payment: it becomes a row in the payment sheet (once)."""
-    delivery = db.session.get(Delivery, delivery_id)
+    # Locked, so a second tap on Approve waits here for the first to finish (and then gets 409)
+    # instead of saving the photo to Drive a second time. FOR NO KEY UPDATE (key_share), not FOR
+    # UPDATE: saving an approval checks the bill still exists, and with FOR UPDATE that check would
+    # wait on the second tap's lock while the second tap waits on the first: a deadlock.
+    delivery = db.session.get(Delivery, delivery_id, with_for_update={"key_share": True})
     if delivery is None:
         return jsonify({"error": "Delivery not found"}), 404
     if delivery.payment:
@@ -107,39 +112,68 @@ def approve_payment(delivery_id):
             current_app.logger.exception("Saving the bill photo to Drive failed")
             return jsonify({"error": "Couldn't save the bill photo to Drive. Try again."}), 502
 
-    sheet = PaymentSheet.query.with_for_update().first()
+    # One approval at a time. populate_existing: the sheet was loaded above, and without it the
+    # lock would hand back that copy, with a Pay ID number another approval may have used since.
+    sheet = PaymentSheet.query.with_for_update().populate_existing().first()
+    if PaymentApproval.query.filter_by(delivery_id=delivery.id).first() is not None:
+        db.session.rollback()
+        return jsonify({"error": "This bill was just approved for payment"}), 409
+    try:
+        number = payment_sheet.next_pay_number(sheet)
+    except payment_sheet.SheetError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 502
     approval = PaymentApproval(
         delivery_id=delivery.id,
-        pay_id=f"PAY-{sheet.next_pay_number:04d}",
+        pay_id=f"PAY-{number:04d}",
         category=category,
         bank_details=bank_details,
         bill_amount=delivery.total_amount,
         approved_by_id=g.current_user.id,
         **held,
     )
-    sheet.next_pay_number += 1
+    sheet.next_pay_number = number + 1
+    # Saved (not yet committed) before the sheet is written, so a clash ends here, not in the sheet.
+    db.session.add(approval)
     try:
-        approval.sheet_row = payment_sheet.add_bill(delivery, approval)
+        db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "This bill was just approved for payment"}), 409
+    try:
+        row = payment_sheet.add_bill(delivery, approval)
     except payment_sheet.SheetError as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 502
 
-    db.session.add(approval)
-    if bank_details:
-        key = _vendor_key(delivery.vendor)
-        remembered = VendorBankDetails.query.filter_by(vendor_key=key).first() or VendorBankDetails(vendor_key=key)
-        remembered.vendor = delivery.vendor
-        remembered.bank_details = bank_details
-        remembered.updated_by_id = g.current_user.id
-        db.session.add(remembered)
-    db.session.add(
-        BillChange(
-            delivery_id=delivery.id,
-            user_id=g.current_user.id,
-            action="payment",
-            changes=[{"field": "payment", "from": None, "to": approval.pay_id}],
+    try:
+        approval.sheet_row = row
+        if bank_details:
+            key = _vendor_key(delivery.vendor)
+            remembered = VendorBankDetails.query.filter_by(vendor_key=key).first() or VendorBankDetails(vendor_key=key)
+            remembered.vendor = delivery.vendor
+            remembered.bank_details = bank_details
+            remembered.updated_by_id = g.current_user.id
+            db.session.add(remembered)
+        db.session.add(
+            BillChange(
+                delivery_id=delivery.id,
+                user_id=g.current_user.id,
+                action="payment",
+                changes=[{"field": "payment", "from": None, "to": approval.pay_id}],
+            )
         )
-    )
-    db.session.commit()
+        db.session.commit()
+    except Exception:
+        # The row is in the sheet but the approval isn't saved: take the row out again, so trying
+        # again doesn't leave the bill in the sheet twice.
+        current_app.logger.exception("Saving the approval of bill %s failed after its sheet row was written", delivery.id)
+        if row:
+            try:
+                payment_sheet.clear_row(sheet, row)
+            except Exception:
+                current_app.logger.exception("Couldn't blank payment sheet row %s", row)
+        db.session.rollback()
+        return jsonify({"error": "Couldn't save the approval. Try again."}), 500
     db.session.refresh(delivery)
     return jsonify({"delivery": delivery.to_dict()})

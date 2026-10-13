@@ -74,17 +74,22 @@ export function AppHeader() {
 /** Height of ScreenHeader, so screens can leave room for it at the top of their scroll content. */
 export const SCREEN_HEADER_HEIGHT = 12 + 56 + 8
 
-/** Back-button header for inner screens. Frosted and pinned to the top while the page scrolls under it. */
+/**
+ * Back-button header for inner screens. Frosted and pinned to the top while the page scrolls under it,
+ * with anything passed as children (a screen's tabs) pinned under it, 8 px down.
+ */
 export function ScreenHeader({
   title,
   subtitle,
   action,
   onBack,
+  children,
 }: {
   title: string
   subtitle?: string
   action?: ReactNode
   onBack?: () => void
+  children?: ReactNode
 }) {
   // Absolute, so it floats over the page as it scrolls; it starts below the status bar.
   const insets = useSafeAreaInsets()
@@ -107,6 +112,7 @@ export function ScreenHeader({
         </View>
         {action ? <View style={{ paddingRight: 6, flexShrink: 0 }}>{action}</View> : null}
       </View>
+      {children ? <View style={{ marginTop: 8 }}>{children}</View> : null}
     </View>
   )
 }

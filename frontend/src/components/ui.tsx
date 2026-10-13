@@ -62,6 +62,40 @@ export interface TabOption<T extends string> {
   dot?: string
 }
 
+/** A screen's sections as a full-width switch, like a website's nav (e.g. a bill and its payment). */
+export function PageTabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: TabOption<T>[]
+  value: T
+  onChange: (key: T) => void
+}) {
+  return (
+    <div role="tablist" className="glass-strong rounded-full p-1 flex gap-1">
+      {tabs.map((tab) => {
+        const active = tab.key === value
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(tab.key)}
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-full py-2 text-[13px] font-bold transition-colors ${
+              active ? 'bg-accent text-white shadow-[0_8px_18px_-10px_rgba(26,60,94,0.8)]' : 'text-ink-muted'
+            }`}
+          >
+            {tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-white' : tab.dot}`} />}
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** Pill filter tabs: the active one is solid navy, the rest are frosted pills with a fine edge. */
 export function FilterTabs<T extends string>({
   tabs,

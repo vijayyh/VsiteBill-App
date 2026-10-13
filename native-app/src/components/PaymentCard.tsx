@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Linking, StyleSheet, View } from 'react-native'
 import { api, ApiError, useApiGet } from '../lib/api'
 import { formatMoney, toNumber } from '../lib/bill'
@@ -10,8 +10,9 @@ import { IconCheck } from './icons'
 import { T } from './T'
 import { Field, PrimaryButton, SecondaryButton, Tap } from './ui'
 
-// Same as the web app's payment card (frontend/src/components/PaymentCard.tsx): approving a matched
-// bill for payment adds it as a row to the payment sheet the payment manager pays from.
+// Same as the web app's payment card (frontend/src/components/PaymentCard.tsx), the review screen's
+// Payment tab: approving a matched bill for payment adds it as a row to the payment sheet the payment
+// manager pays from.
 
 function SmallLabel({ children }: { children: string }) {
   return (
@@ -21,9 +22,17 @@ function SmallLabel({ children }: { children: string }) {
   )
 }
 
-export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onApproved: () => void }) {
+export function PaymentCard({
+  delivery,
+  onApproved,
+  onCancel,
+}: {
+  delivery: Delivery
+  onApproved: () => void
+  /** Leaves the form (back to the bill). */
+  onCancel: () => void
+}) {
   const status = useApiGet<PaymentSheetStatus>('/api/payment-sheet').data
-  const [open, setOpen] = useState(false)
   const [category, setCategory] = useState('')
   const [bankDetails, setBankDetails] = useState('')
   const [hold, setHold] = useState('')
@@ -32,9 +41,26 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showErrors, setShowErrors] = useState(false)
+  // Set at once (state only after a redraw), so a quick second tap can't send the bill twice.
+  const sending = useRef(false)
 
   const payment = delivery.payment
-  if (!payment && delivery.status !== 'MATCHED') return null
+  const approvable = !payment && delivery.status === 'MATCHED'
+
+  // The vendor's bank details as last entered fill in the form.
+  useEffect(() => {
+    if (!approvable) return
+    let current = true
+    api
+      .get<{ bankDetails: string }>(`/api/deliveries/${delivery.id}/payment`)
+      .then((defaults) => current && setBankDetails((typed) => typed || defaults.bankDetails))
+      .catch(() => {
+        // Without the remembered details the form still works: they're typed in.
+      })
+    return () => {
+      current = false
+    }
+  }, [approvable, delivery.id])
 
   const sheetUrl = status?.sheet?.url
   const sheetLink = sheetUrl ? (
@@ -44,6 +70,20 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
       </T>
     </Tap>
   ) : undefined
+
+  if (!payment && !approvable) {
+    return (
+      <View>
+        <SectionLabel title="Payment" />
+        <View style={[glass, styles.card]}>
+          <T size={12.5} lh={1.625} color={colors.inkMuted}>
+            Only a matched bill is approved for payment. Check it on the Bill tab and confirm the match, then approve it
+            here.
+          </T>
+        </View>
+      </View>
+    )
+  }
 
   if (payment) {
     const held = payment.amountOnHold + payment.advance + payment.tds
@@ -102,37 +142,29 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
   const held = (toNumber(hold) ?? 0) + (toNumber(advance) ?? 0) + (toNumber(tds) ?? 0)
   const payable = total == null ? null : Math.round((total - held) * 100) / 100
 
-  async function openForm() {
-    setOpen(true)
-    try {
-      const defaults = await api.get<{ bankDetails: string }>(`/api/deliveries/${delivery.id}/payment`)
-      setBankDetails((current) => current || defaults.bankDetails)
-    } catch {
-      // Without the remembered details the form still works: they're typed in.
-    }
-  }
-
   async function approve() {
     if (!category) {
       setShowErrors(true)
       return
     }
+    if (sending.current) return
+    sending.current = true
     setSaving(true)
     setError(null)
     try {
       await api.post(`/api/deliveries/${delivery.id}/payment`, { category, bankDetails, amountOnHold: hold, advance, tds })
-      setOpen(false)
       onApproved()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not reach the server. Try again.')
     } finally {
+      sending.current = false
       setSaving(false)
     }
   }
 
   return (
     <View>
-      <SectionLabel title="Payment" right={sheetLink} />
+      <SectionLabel title="Approve for payment" right={sheetLink} />
       <View style={[glass, styles.card]}>
         {!status ? (
           <T size={12.5} color={colors.inkMuted}>
@@ -145,21 +177,11 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
           </T>
         ) : null}
 
-        {status && !blocker && !open ? (
-          <>
+        {status && !blocker && total != null ? (
+          <View style={{ gap: 14 }}>
             <T size={12.5} lh={1.625} color={colors.inkMuted}>
               Approving adds this bill to the payment sheet for the payment manager.
             </T>
-            <PrimaryButton onPress={() => void openForm()} style={{ paddingVertical: 12, marginTop: 12 }}>
-              <T size={14} weight={700} color={colors.white}>
-                Approve for payment
-              </T>
-            </PrimaryButton>
-          </>
-        ) : null}
-
-        {status && !blocker && open && total != null ? (
-          <View style={{ gap: 14 }}>
             <View>
               <View style={{ marginBottom: 6, marginLeft: 4 }}>
                 <SmallLabel>Category</SmallLabel>
@@ -241,7 +263,7 @@ export function PaymentCard({ delivery, onApproved }: { delivery: Delivery; onAp
               </T>
             ) : null}
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              <SecondaryButton onPress={() => setOpen(false)} disabled={saving} style={{ flex: 1, paddingVertical: 12 }}>
+              <SecondaryButton onPress={onCancel} disabled={saving} style={{ flex: 1, paddingVertical: 12 }}>
                 <T size={13.5} weight={600}>
                   Cancel
                 </T>

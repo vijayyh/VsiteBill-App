@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { colors, fonts, glass, glassStrong, radii, ring } from '../lib/theme'
+import { Frost, FROST } from './Frost'
 import { IconSearch, type Icon } from './icons'
 import { T } from './T'
 
@@ -87,6 +88,43 @@ export interface TabOption<K extends string> {
   count?: number
   /** Colour of the dot shown before the label (status tabs). */
   dot?: string
+}
+
+/** Height of `PageTabs`: its frame, padding and one line of 13 px text (45 px, as on the web). */
+export const PAGE_TABS_HEIGHT = 1 + 4 + 8 + 19.5 + 8 + 4 + 1
+
+/** A screen's sections as a full-width switch, like a website's nav (e.g. a bill and its payment). */
+export function PageTabs<K extends string>({
+  tabs,
+  value,
+  onChange,
+}: {
+  tabs: TabOption<K>[]
+  value: K
+  onChange: (key: K) => void
+}) {
+  return (
+    <View style={[glassStrong, s.pageTabs]} accessibilityRole="tablist">
+      <Frost {...FROST.strong} style={{ borderRadius: radii.full }} />
+      {tabs.map((tab) => {
+        const active = tab.key === value
+        return (
+          <Tap
+            key={tab.key}
+            onPress={() => onChange(tab.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            style={[s.pageTab, active && s.pageTabActive]}
+          >
+            {tab.dot ? <View style={[s.dot, { backgroundColor: active ? colors.white : tab.dot }]} /> : null}
+            <T size={13} weight={700} color={active ? colors.white : colors.inkMuted}>
+              {tab.label}
+            </T>
+          </Tap>
+        )
+      })}
+    </View>
+  )
 }
 
 /** Pill filter tabs: the active one is solid navy, the rest are frosted pills with a fine edge. */
@@ -273,6 +311,9 @@ export const s = StyleSheet.create({
     boxShadow: '0px 8px 18px -10px rgba(26, 60, 94, 0.8)',
   },
   pillIdle: glass,
+  pageTabs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: radii.full, backgroundColor: 'transparent' },
+  pageTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: radii.full, paddingVertical: 8 },
+  pageTabActive: { backgroundColor: colors.accent, boxShadow: '0px 8px 18px -10px rgba(26, 60, 94, 0.8)' },
   dot: { width: 6, height: 6, borderRadius: 3 },
   pillCount: { minWidth: 20, borderRadius: radii.full, paddingHorizontal: 6 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radii.full, paddingHorizontal: 16, height: 48 },

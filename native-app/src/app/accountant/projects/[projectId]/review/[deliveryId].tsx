@@ -1,5 +1,5 @@
 import { Redirect, router, useLocalSearchParams, usePathname } from 'expo-router'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { KeyboardAvoidingView, Linking, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import { AuthImage } from '../../../../../components/AuthImage'
 import { BillHistory } from '../../../../../components/BillHistory'
@@ -12,7 +12,7 @@ import { IconAlertTriangle, IconCamera, IconCheck, IconClipboardCheck, IconCloud
 import { PhotoViewer } from '../../../../../components/PhotoViewer'
 import { PageBackground, Screen } from '../../../../../components/Screen'
 import { T } from '../../../../../components/T'
-import { Card, Field, PrimaryButton, SecondaryButton, Tap } from '../../../../../components/ui'
+import { Card, Field, PAGE_TABS_HEIGHT, PageTabs, PrimaryButton, SecondaryButton, Tap, type TabOption } from '../../../../../components/ui'
 import { api, ApiError, useApiGet } from '../../../../../lib/api'
 import {
   AMOUNT_FIELDS,
@@ -32,6 +32,8 @@ import {
 import { formatDateTime, formatQty } from '../../../../../lib/format'
 import { colors, fonts, glassStrong, radii, ring } from '../../../../../lib/theme'
 import type { BillHistoryEntry, Delivery, Project } from '../../../../../lib/types'
+
+type Tab = 'bill' | 'payment'
 
 // Same as the web app's bill review (frontend/src/screens/accountant/ReviewDelivery.tsx). Back and
 // save return to wherever the bill was opened from (Home, the Review queue, Alerts or the gallery;
@@ -59,6 +61,9 @@ export default function ReviewDelivery() {
   const [savingToDrive, setSavingToDrive] = useState(false)
   const [driveError, setDriveError] = useState<string | null>(null)
   const [barHeight, setBarHeight] = useState(0)
+  // The bill and its payment are two tabs, so the payment form isn't more scrolling under the bill.
+  const [tab, setTab] = useState<Tab>('bill')
+  const scroll = useRef<ScrollView>(null)
 
   const delivery = deliveryQuery.data?.delivery
   const project = projectQuery.data?.project
@@ -162,6 +167,16 @@ export default function ReviewDelivery() {
       ? { text: colors.warningText, bg: colors.warningBg }
       : { text: colors.successText, bg: colors.successBg }
 
+  function showTab(next: Tab) {
+    setTab(next)
+    scroll.current?.scrollTo({ y: 0, animated: false })
+  }
+  const tabs: TabOption<Tab>[] = [
+    { key: 'bill', label: 'Bill' },
+    // A green dot once it's in the payment sheet.
+    { key: 'payment', label: 'Payment', dot: delivery.payment ? colors.successText : undefined },
+  ]
+
   return (
     <Screen>
       <FrostScope>
@@ -169,214 +184,227 @@ export default function ReviewDelivery() {
           <FrostBackdrop style={{ flex: 1 }}>
             <PageBackground />
             <ScrollView
-              contentContainerStyle={{ paddingTop: SCREEN_HEADER_HEIGHT + 8, paddingHorizontal: 20, paddingBottom: 16 + barHeight, gap: 16 }}
+              ref={scroll}
+              contentContainerStyle={{
+                paddingTop: SCREEN_HEADER_HEIGHT + 8 + PAGE_TABS_HEIGHT + 8,
+                paddingHorizontal: 20,
+                paddingBottom: 16 + (tab === 'bill' ? barHeight : 0),
+              }}
               keyboardShouldPersistTaps="handled"
             >
-              <Card style={{ padding: 6 }}>
-                <Tap onPress={() => delivery.photoUrl && setViewerOpen(true)} accessibilityLabel="View bill photo" style={styles.photo}>
-                  {delivery.photoUrl ? (
-                    // The photo is the backdrop the frosted "Tap to enlarge" pill blurs.
-                    <FrostScope>
-                      <FrostBackdrop style={StyleSheet.absoluteFill}>
-                        <AuthImage src={delivery.photoUrl} />
-                      </FrostBackdrop>
-                      <View style={styles.enlarge}>
-                        <Frost blur={8} tint="rgba(0, 0, 0, 0.45)" style={{ borderRadius: 999 }} />
-                        <T size={12} weight={700} color={colors.white}>
-                          Tap to enlarge
+              {/* Both stay mounted (hidden, not removed), so nothing typed is lost on switching. */}
+              <View style={{ display: tab === 'payment' ? 'flex' : 'none' }}>
+                <PaymentCard
+                  delivery={delivery}
+                  onApproved={() => {
+                    deliveryQuery.refetch()
+                    historyQuery.refetch()
+                  }}
+                  onCancel={() => showTab('bill')}
+                />
+              </View>
+
+              <View style={{ gap: 16, display: tab === 'bill' ? 'flex' : 'none' }}>
+                <Card style={{ padding: 6 }}>
+                  <Tap onPress={() => delivery.photoUrl && setViewerOpen(true)} accessibilityLabel="View bill photo" style={styles.photo}>
+                    {delivery.photoUrl ? (
+                      // The photo is the backdrop the frosted "Tap to enlarge" pill blurs.
+                      <FrostScope>
+                        <FrostBackdrop style={StyleSheet.absoluteFill}>
+                          <AuthImage src={delivery.photoUrl} />
+                        </FrostBackdrop>
+                        <View style={styles.enlarge}>
+                          <Frost blur={8} tint="rgba(0, 0, 0, 0.45)" style={{ borderRadius: 999 }} />
+                          <T size={12} weight={700} color={colors.white}>
+                            Tap to enlarge
+                          </T>
+                        </View>
+                      </FrostScope>
+                    ) : (
+                      <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+                        <IconCamera size={32} stroke="#8D9A9E" />
+                      </View>
+                    )}
+                  </Tap>
+                  <View style={styles.photoMeta}>
+                    <T size={11.5} color={colors.inkMuted} numberOfLines={1} style={{ flexShrink: 1 }}>
+                      {delivery.uploadedBy ? `${delivery.uploadedBy} · ` : ''}
+                      {formatDateTime(delivery.uploadedAt)}
+                    </T>
+                    {delivery.photoUrl ? (
+                      delivery.driveFileId ? (
+                        <Tap
+                          onPress={() => delivery.driveWebViewLink && void Linking.openURL(delivery.driveWebViewLink)}
+                          style={[styles.chip, { backgroundColor: colors.successBg }]}
+                        >
+                          <IconCheck size={13} stroke={colors.successText} strokeWidth={2.5} />
+                          <T size={12} weight={700} color={colors.successText}>
+                            In Drive ↗
+                          </T>
+                        </Tap>
+                      ) : (
+                        <Tap onPress={() => void saveToDrive()} disabled={savingToDrive} style={[styles.chip, { backgroundColor: colors.infoBg }, savingToDrive && { opacity: 0.6 }]}>
+                          <IconCloud size={13} stroke={colors.accent} />
+                          <T size={12} weight={700} color={colors.accent}>
+                            {savingToDrive ? 'Saving…' : 'Save to Drive'}
+                          </T>
+                        </Tap>
+                      )
+                    ) : null}
+                  </View>
+                  {driveError ? (
+                    <T size={12} weight={600} color={colors.warningText} style={{ paddingHorizontal: 10, paddingBottom: 6 }}>
+                      {driveError}
+                    </T>
+                  ) : null}
+                </Card>
+
+                <Card style={{ padding: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[styles.toneIcon, { backgroundColor: tone.bg }]}>
+                      {!comparable ? (
+                        <IconClipboardCheck size={14} stroke={tone.text} />
+                      ) : hasDiscrepancy ? (
+                        <IconAlertTriangle size={14} stroke={tone.text} strokeWidth={2.5} />
+                      ) : (
+                        <IconCheck size={14} stroke={tone.text} strokeWidth={2.6} />
+                      )}
+                    </View>
+                    <T size={14} weight={700} color={tone.text}>
+                      {!comparable ? 'Enter both quantities to compare' : hasDiscrepancy ? 'Quantity mismatch' : 'Quantities match'}
+                    </T>
+                  </View>
+                  <View style={styles.compare}>
+                    {[
+                      { label: 'Ordered', value: orderedQty.trim() ? String(ordered) : '—', color: colors.ink },
+                      { label: 'Delivered', value: deliveredTotal !== null ? formatQty(delivered) : '—', color: colors.ink },
+                      {
+                        label: !comparable ? 'Difference' : diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference',
+                        value: comparable ? String(Math.abs(diff)) : '—',
+                        color: tone.text,
+                      },
+                    ].map((cell, i) => (
+                      <View key={cell.label + i} style={[styles.compareCell, i > 0 && styles.compareDivider]}>
+                        <T size={11} color={i === 2 ? tone.text : colors.inkMuted} style={{ textAlign: 'center' }}>
+                          {cell.label}
+                        </T>
+                        <T size={20} weight={700} lh={1.25} color={cell.color} style={{ marginTop: 2, textAlign: 'center' }}>
+                          {cell.value}
                         </T>
                       </View>
-                    </FrostScope>
-                  ) : (
-                    <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
-                      <IconCamera size={32} stroke="#8D9A9E" />
-                    </View>
-                  )}
-                </Tap>
-                <View style={styles.photoMeta}>
-                  <T size={11.5} color={colors.inkMuted} numberOfLines={1} style={{ flexShrink: 1 }}>
-                    {delivery.uploadedBy ? `${delivery.uploadedBy} · ` : ''}
-                    {formatDateTime(delivery.uploadedAt)}
-                  </T>
-                  {delivery.photoUrl ? (
-                    delivery.driveFileId ? (
-                      <Tap
-                        onPress={() => delivery.driveWebViewLink && void Linking.openURL(delivery.driveWebViewLink)}
-                        style={[styles.chip, { backgroundColor: colors.successBg }]}
-                      >
-                        <IconCheck size={13} stroke={colors.successText} strokeWidth={2.5} />
-                        <T size={12} weight={700} color={colors.successText}>
-                          In Drive ↗
-                        </T>
-                      </Tap>
-                    ) : (
-                      <Tap onPress={() => void saveToDrive()} disabled={savingToDrive} style={[styles.chip, { backgroundColor: colors.infoBg }, savingToDrive && { opacity: 0.6 }]}>
-                        <IconCloud size={13} stroke={colors.accent} />
-                        <T size={12} weight={700} color={colors.accent}>
-                          {savingToDrive ? 'Saving…' : 'Save to Drive'}
-                        </T>
-                      </Tap>
-                    )
-                  ) : null}
-                </View>
-                {driveError ? (
-                  <T size={12} weight={600} color={colors.warningText} style={{ paddingHorizontal: 10, paddingBottom: 6 }}>
-                    {driveError}
-                  </T>
-                ) : null}
-              </Card>
-
-              <Card style={{ padding: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.toneIcon, { backgroundColor: tone.bg }]}>
-                    {!comparable ? (
-                      <IconClipboardCheck size={14} stroke={tone.text} />
-                    ) : hasDiscrepancy ? (
-                      <IconAlertTriangle size={14} stroke={tone.text} strokeWidth={2.5} />
-                    ) : (
-                      <IconCheck size={14} stroke={tone.text} strokeWidth={2.6} />
-                    )}
+                    ))}
                   </View>
-                  <T size={14} weight={700} color={tone.text}>
-                    {!comparable ? 'Enter both quantities to compare' : hasDiscrepancy ? 'Quantity mismatch' : 'Quantities match'}
-                  </T>
-                </View>
-                <View style={styles.compare}>
-                  {[
-                    { label: 'Ordered', value: orderedQty.trim() ? String(ordered) : '—', color: colors.ink },
-                    { label: 'Delivered', value: deliveredTotal !== null ? formatQty(delivered) : '—', color: colors.ink },
-                    {
-                      label: !comparable ? 'Difference' : diff > 0 ? 'Short by' : diff < 0 ? 'Extra' : 'Difference',
-                      value: comparable ? String(Math.abs(diff)) : '—',
-                      color: tone.text,
-                    },
-                  ].map((cell, i) => (
-                    <View key={cell.label + i} style={[styles.compareCell, i > 0 && styles.compareDivider]}>
-                      <T size={11} color={i === 2 ? tone.text : colors.inkMuted} style={{ textAlign: 'center' }}>
-                        {cell.label}
-                      </T>
-                      <T size={20} weight={700} lh={1.25} color={cell.color} style={{ marginTop: 2, textAlign: 'center' }}>
-                        {cell.value}
-                      </T>
-                    </View>
-                  ))}
-                </View>
-              </Card>
+                </Card>
 
-              <PaymentCard
-                delivery={delivery}
-                onApproved={() => {
-                  deliveryQuery.refetch()
-                  historyQuery.refetch()
-                }}
-              />
-
-              <View>
-                <SectionLabel title="Bill" />
-                <View style={{ gap: 14 }}>
-                  <Field
-                    label={<MarkedLabel label="Vendor" mark={markFor('vendor', vendor, delivery.vendor)} />}
-                    invalid={showErrors && !vendor.trim()}
-                    value={vendor}
-                    onChangeText={setVendor}
-                  />
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View>
+                  <SectionLabel title="Bill" />
+                  <View style={{ gap: 14 }}>
                     <Field
-                      style={{ flex: 1 }}
-                      label={<MarkedLabel label="Bill no." mark={markFor('invoiceNumber', invoiceNumber, delivery.invoiceNumber ?? '')} />}
-                      value={invoiceNumber}
-                      onChangeText={setInvoiceNumber}
+                      label={<MarkedLabel label="Vendor" mark={markFor('vendor', vendor, delivery.vendor)} />}
+                      invalid={showErrors && !vendor.trim()}
+                      value={vendor}
+                      onChangeText={setVendor}
                     />
-                    <DateField
-                      style={{ flex: 1 }}
-                      label={<MarkedLabel label="Bill date" mark={markFor('billDate', billDate, delivery.billDate ?? '')} />}
-                      value={billDate}
-                      onChange={setBillDate}
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Field
+                        style={{ flex: 1 }}
+                        label={<MarkedLabel label="Bill no." mark={markFor('invoiceNumber', invoiceNumber, delivery.invoiceNumber ?? '')} />}
+                        value={invoiceNumber}
+                        onChangeText={setInvoiceNumber}
+                      />
+                      <DateField
+                        style={{ flex: 1 }}
+                        label={<MarkedLabel label="Bill date" mark={markFor('billDate', billDate, delivery.billDate ?? '')} />}
+                        value={billDate}
+                        onChange={setBillDate}
+                      />
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <Field
+                        style={{ flex: 1 }}
+                        label={<MarkedLabel label="PO number" mark={markFor('poNumber', poNumber, delivery.poNumber ?? '')} />}
+                        invalid={showErrors && !poNumber.trim()}
+                        value={poNumber}
+                        onChangeText={setPoNumber}
+                      />
+                      <NumberField
+                        style={{ flex: 1 }}
+                        label={
+                          <MarkedLabel
+                            label="Ordered qty"
+                            mark={markFor('ordered', orderedQty, delivery.ordered != null ? String(delivery.ordered) : '')}
+                          />
+                        }
+                        invalid={showErrors && !orderedQty.trim()}
+                        value={orderedQty}
+                        onChange={setOrderedQty}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                <ItemsEditor rows={rows} onChange={setRows} showErrors={showErrors} flagged={delivery.quantityLowConfidence} editedFields={earlier} />
+
+                <AmountsCard amounts={amounts} marks={amountMarks} onChange={(key, value) => setAmounts((before) => ({ ...before, [key]: value }))} />
+
+                {/* The 6.4 px under it is the space a browser leaves under a textarea. */}
+                <View style={{ marginBottom: 6.4 }}>
+                  <View style={styles.noteLabel}>
+                    <T size={12} weight={600} color={colors.label}>
+                      Note (optional)
+                    </T>
+                    <ReadMark mark={markFor('note', note, delivery.note ?? '')} />
+                  </View>
+                  {/* Outline on a wrapper: changing it on the TextInput itself makes Android drop its padding. */}
+                  <View style={[glassStrong, styles.noteFrame, noteFocused && styles.noteFocused]}>
+                    <TextInput
+                      multiline
+                      numberOfLines={2}
+                      placeholder="e.g. Short by 10 bags — vendor to send the remainder"
+                      placeholderTextColor={colors.inkFaint}
+                      value={note}
+                      onChangeText={setNote}
+                      onFocus={() => setNoteFocused(true)}
+                      onBlur={() => setNoteFocused(false)}
+                      underlineColorAndroid="transparent"
+                      style={styles.note}
                     />
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 12 }}>
-                    <Field
-                      style={{ flex: 1 }}
-                      label={<MarkedLabel label="PO number" mark={markFor('poNumber', poNumber, delivery.poNumber ?? '')} />}
-                      invalid={showErrors && !poNumber.trim()}
-                      value={poNumber}
-                      onChangeText={setPoNumber}
-                    />
-                    <NumberField
-                      style={{ flex: 1 }}
-                      label={
-                        <MarkedLabel
-                          label="Ordered qty"
-                          mark={markFor('ordered', orderedQty, delivery.ordered != null ? String(delivery.ordered) : '')}
-                        />
-                      }
-                      invalid={showErrors && !orderedQty.trim()}
-                      value={orderedQty}
-                      onChange={setOrderedQty}
-                    />
-                  </View>
                 </View>
+
+                <BillHistory history={historyQuery.data?.changes} />
               </View>
-
-              <ItemsEditor rows={rows} onChange={setRows} showErrors={showErrors} flagged={delivery.quantityLowConfidence} editedFields={earlier} />
-
-              <AmountsCard amounts={amounts} marks={amountMarks} onChange={(key, value) => setAmounts((before) => ({ ...before, [key]: value }))} />
-
-              {/* The 6.4 px under it is the space a browser leaves under a textarea. */}
-              <View style={{ marginBottom: 6.4 }}>
-                <View style={styles.noteLabel}>
-                  <T size={12} weight={600} color={colors.label}>
-                    Note (optional)
-                  </T>
-                  <ReadMark mark={markFor('note', note, delivery.note ?? '')} />
-                </View>
-                {/* Outline on a wrapper: changing it on the TextInput itself makes Android drop its padding. */}
-                <View style={[glassStrong, styles.noteFrame, noteFocused && styles.noteFocused]}>
-                  <TextInput
-                    multiline
-                    numberOfLines={2}
-                    placeholder="e.g. Short by 10 bags — vendor to send the remainder"
-                    placeholderTextColor={colors.inkFaint}
-                    value={note}
-                    onChangeText={setNote}
-                    onFocus={() => setNoteFocused(true)}
-                    onBlur={() => setNoteFocused(false)}
-                    underlineColorAndroid="transparent"
-                    style={styles.note}
-                  />
-                </View>
-              </View>
-
-              <BillHistory history={historyQuery.data?.changes} />
             </ScrollView>
           </FrostBackdrop>
 
-          <ActionBar onHeight={setBarHeight}>
-            {showErrors && missingFields.length > 0 ? (
-              <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
-                Fill in {missingFields.join(', ')} before confirming a match.
-              </T>
-            ) : null}
-            {saveError ? (
-              <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
-                {saveError}
-              </T>
-            ) : null}
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <SecondaryButton onPress={() => void save('REVIEW')} disabled={saving} style={{ flex: 1, paddingVertical: 14 }}>
-                <IconAlertTriangle size={15} stroke={colors.warningText} strokeWidth={2.4} />
-                <T size={13.5} weight={600} color={colors.warningText}>
-                  {delivery.status === 'REVIEW' ? 'Keep flagged' : 'Flag'}
+          {tab === 'bill' ? (
+            <ActionBar onHeight={setBarHeight}>
+              {showErrors && missingFields.length > 0 ? (
+                <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
+                  Fill in {missingFields.join(', ')} before confirming a match.
                 </T>
-              </SecondaryButton>
-              <PrimaryButton onPress={() => void save('MATCHED')} disabled={saving} style={{ flex: 1.4, paddingVertical: 14 }}>
-                <IconCheck size={16} stroke={colors.white} strokeWidth={2.6} />
-                <T size={14} weight={700} color={colors.white}>
-                  {delivery.status === 'MATCHED' ? 'Save as matched' : 'Confirm match'}
+              ) : null}
+              {saveError ? (
+                <T size={12} weight={600} color={colors.warningText} style={{ textAlign: 'center', paddingTop: 4 }}>
+                  {saveError}
                 </T>
-              </PrimaryButton>
-            </View>
-          </ActionBar>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <SecondaryButton onPress={() => void save('REVIEW')} disabled={saving} style={{ flex: 1, paddingVertical: 14 }}>
+                  <IconAlertTriangle size={15} stroke={colors.warningText} strokeWidth={2.4} />
+                  <T size={13.5} weight={600} color={colors.warningText}>
+                    {delivery.status === 'REVIEW' ? 'Keep flagged' : 'Flag'}
+                  </T>
+                </SecondaryButton>
+                <PrimaryButton onPress={() => void save('MATCHED')} disabled={saving} style={{ flex: 1.4, paddingVertical: 14 }}>
+                  <IconCheck size={16} stroke={colors.white} strokeWidth={2.6} />
+                  <T size={14} weight={700} color={colors.white}>
+                    {delivery.status === 'MATCHED' ? 'Save as matched' : 'Confirm match'}
+                  </T>
+                </PrimaryButton>
+              </View>
+            </ActionBar>
+          ) : null}
         </KeyboardAvoidingView>
 
         <ScreenHeader
@@ -384,7 +412,9 @@ export default function ReviewDelivery() {
           subtitle={`${project.code} · ${project.name}`}
           action={<StatusBadge status={delivery.status} />}
           onBack={back}
-        />
+        >
+          <PageTabs tabs={tabs} value={tab} onChange={showTab} />
+        </ScreenHeader>
       </FrostScope>
       {viewerOpen ? <PhotoViewer src={delivery.photoUrl} onClose={() => setViewerOpen(false)} /> : null}
     </Screen>

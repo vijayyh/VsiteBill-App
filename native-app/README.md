@@ -78,8 +78,11 @@ $env:ORG_GRADLE_PROJECT_SITEVERIFY_STORE_FILE = "$dir\siteverify-release.jks"
 $env:ORG_GRADLE_PROJECT_SITEVERIFY_KEY_ALIAS = '<alias from PASSWORD.txt>'
 $env:ORG_GRADLE_PROJECT_SITEVERIFY_STORE_PASSWORD = '<password from PASSWORD.txt>'
 $env:ORG_GRADLE_PROJECT_SITEVERIFY_KEY_PASSWORD = '<password from PASSWORD.txt>'
+# robocopy /MIR deletes android\local.properties (prebuild doesn't make one), so name the SDK here.
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 cd C:\sv\native-app\android
-.\gradlew.bat assembleRelease -PreactNativeArchitectures=arm64-v8a --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process -Porg.gradle.parallel=false
+# The options are quoted: unquoted, PowerShell splits -Pkotlin.compiler... at the first dot.
+.\gradlew.bat assembleRelease '-PreactNativeArchitectures=arm64-v8a' '--max-workers=2' '-Pkotlin.compiler.execution.strategy=in-process' '-Porg.gradle.parallel=false'
 ```
 
    **Phone APKs are built for `arm64-v8a` only** (every phone from roughly the last eight years):

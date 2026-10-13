@@ -19,9 +19,9 @@ approving was made safe against repeats (see the session log). Native app **2.3.
 
 **Next (the user):**
 1. **The live sheet has bill MRL/26-27/158 twice** (rows 4 and 5, both PAY-0001, from before the
-   fix). Open that bill on the live site → Payment tab: it names the row the app recorded
-   ("row 4 in the sheet"); clear the other row's cells. If it isn't approved at all, clear both and
-   approve it again. Render's logs from 2026-10-13 evening would show why the first try failed.
+   fix). The app recorded **row 5** (checked on the live site), so **row 4 is the leftover**: delete
+   it (the app will then say "row 5" for this one bill, one row too low) or clear its cells.
+   Render's logs from 2026-10-13 ~8:49 PM would show why the first try failed.
 2. Replace the Google OAuth client secret (it was pasted into chat on 2026-10-13): Google Cloud →
    Credentials → SiteVerify client → Add secret → update Render `GOOGLE_CLIENT_SECRET` and the home
    `backend/.env` → delete the old secret. Same for the Vision key (pasted 2026-10-10).
@@ -203,6 +203,13 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   native tsc and lint. Tabs, form, Cancel, the approved and not-matched states and a double tap
   (one request) checked in the browser and on the emulator against the local backend with two
   TEST bills and a placeholder Google connection, all deleted afterwards. Native 2.3.0 (code 103).
+- **Shipped:** pushed to `main` (983d730); CI green; the live website has the tabs (checked in the
+  browser with the Office / Accountant demo role: tabs, approved card, green dot). The live bill
+  MRL/26-27/158 is recorded as PAY-0001 in row 5. APK 2.3.0 built: arm64, 50 MB, SiteVerify key
+  (SHA-256 checked), live API, `native-app/SiteVerify-Beta-2.3.0.apk` (home machine).
+- **Release build gotchas** (now in `native-app/README.md`): `robocopy /MIR` deletes
+  `android\local.properties`, so set `ANDROID_HOME`; quote Gradle's `-P…` options in PowerShell or
+  `-Pkotlin.compiler…` is split at the dot.
 
 ### 2026-10-13 — Payment sheet (Google Sheets) for approved bills (home)
 

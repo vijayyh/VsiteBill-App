@@ -12,10 +12,10 @@ services:
     envVars:
       - key: JWT_SECRET
         generateValue: true
+      # Supabase Postgres (project VsiteBilll-DB, Singapore), session pooler URL, since
+      # 2026-10-16. Set by hand in the dashboard; no longer linked to a Render database.
       - key: DATABASE_URL
-        fromDatabase:
-          name: vsitebill-db
-          property: connectionString
+        sync: false
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
@@ -56,9 +56,5 @@ services:
         source: /*
         destination: /index.html
 
-databases:
-  - name: vsitebill-db
-    region: singapore
-    plan: 0.1c-256mb
-    databaseName: vsitebill
-    user: vsitebill
+# The Render database vsitebill-db (free tier) was replaced by Supabase on 2026-10-16 and
+# expires on 2026-10-19; it is no longer declared here.

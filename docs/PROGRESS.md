@@ -7,7 +7,24 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-16 (office PC, after syncing from home)_
+_Last updated: 2026-10-16 (office PC, after the database move)_
+
+**The live database moved to Supabase (2026-10-16), free.** Render's free Postgres expires on
+2026-10-19, so all data was copied to a new free Supabase project **VsiteBilll-DB** (Singapore,
+`ap-southeast-1`, same city as the Render API) and Render's `DATABASE_URL` now points at its
+**session pooler**. All 13 tables were verified identical, the live site shows every bill, photo
+and item, Supabase receives the app's queries and the old database has no connections (see the
+session log). The old Render database is untouched and is the fallback until it expires on the
+19th (put its URL back in `DATABASE_URL` to switch back); after that it's gone. Things to know:
+- **Supabase free projects pause after about a week with no use.** Daily use keeps it awake; if
+  it pauses, the app can't log in until it's resumed in the Supabase dashboard.
+- **Backups:** check what Supabase → Database → Backups offers on the free plan; if there's no
+  downloadable backup, take an occasional export from a PC (`pg_dump`, or the copy script used
+  for the move).
+- `backend/.env` on the office PC has `OLD_DATABASE_URL` / `NEW_DATABASE_URL` lines (used for the
+  copy). `NEW_DATABASE_URL` is the **live** database's password: delete both lines once you no
+  longer need them.
+- The original Supabase project (VsiteBilll App, Sydney) still holds the bill photos; unchanged.
 
 **The office PC is now in sync with home (2026-10-16):** `main` pulled, backend deps installed,
 local database at 9e1dcf0e6229, frontend and native-app `npm install` done, and the office
@@ -71,7 +88,7 @@ installed on a real phone yet.
   2026-10-06/07 session log.
 
 **Other next steps:**
-1. **Before 2026-10-19: upgrade the Render Postgres** (open item 2), or the real data is deleted.
+1. ~~Before 2026-10-19: upgrade the Render Postgres~~: done 2026-10-16, moved to Supabase (free).
 2. **Try the native app on a real phone:** install `native-app/SiteVerify-Beta-2.0.0.apk`. It
    installs next to the current app and uses the live server. Compare the two; if it's good, build
    the production variant so it replaces the current app.
@@ -113,8 +130,8 @@ production photo bucket; blank them in the environment when creating test bills.
    was seeded with those accounts on 2026-10-02, so anyone reading the repo can log in to the live
    admin panel. Fix: change the production admin's password, and/or make the repo private (GitHub →
    Settings → General → Danger Zone → Change visibility).
-2. **Render Postgres (`vsitebill-db`) is on the free tier and will be deleted on 2026-10-19** unless
-   it's upgraded to a paid plan. It now holds the real data.
+2. ~~Render Postgres (`vsitebill-db`) expires 2026-10-19~~: done 2026-10-16. The live database is
+   now Supabase VsiteBilll-DB (Singapore, free). See "Where we left off".
 3. **Rotate the Supabase S3 access key.** It was pasted into a chat. Create a new key in Supabase
    (Project Settings → Storage → S3 access keys), update it on Render and in `backend/.env`, then
    delete the old one.
@@ -201,6 +218,29 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-16 — Live database moved from Render Postgres to Supabase (office)
+
+- Why: Render's free Postgres (`vsitebill-db`, PostgreSQL 18, ~67 MB) expires 2026-10-19. The user
+  chose the free route. The existing Supabase project is in Sydney, too far from the Render API in
+  Singapore, so the user created a second free project, **VsiteBilll-DB**, in Singapore (Data API
+  and automatic RLS off, no GitHub link; PostgreSQL 17).
+- The user put both connection URLs in the office `backend/.env` (`OLD_DATABASE_URL`,
+  `NEW_DATABASE_URL`); Claude never saw the passwords. `psycopg2-binary` was installed into the
+  office venv only (production already installs it in its build command).
+- Tables created on Supabase with the app's own migrations (`flask db upgrade`, up to
+  9e1dcf0e6229, same as Render). No demo seeding happened.
+- Rows copied with a one-off script (read-only on Render, one transaction on Supabase, refuses to
+  run into non-empty tables, moves every id sequence past the copied ids), run by the user:
+  13 tables, e.g. 10 bills, 23 items, 13 OCR scans, 11 change-history rows, 2 payment approvals,
+  3 users, 1 Drive account, 1 payment sheet. Every table matched (count + md5 of all rows).
+- The user set Render `vsitebill-api` → `DATABASE_URL` to the Supabase session pooler URL; deploy
+  live 3:17 PM. Checked: demo accountant login, dashboard (10 bills: 2 pending, 1 flagged, 7
+  matched), a bill with its photo, 12 items and Drive link; Supabase shows the app's queries and
+  9 client connections, Render's database 0; a second compare after the switch was still
+  identical (nothing written to Render in between).
+- Docs: `render.yaml` (DATABASE_URL no longer linked to `vsitebill-db`; the database block
+  removed), `docs/PROJECT_OVERVIEW.md`, `README.md`.
 
 ### 2026-10-16 — Office PC synced with home; web app and emulator checked (office)
 

@@ -61,7 +61,7 @@ the bill don't change that row).
 ```
  Phone / browser (PWA)                     Render                         External
 ┌──────────────────────┐   HTTPS/JSON   ┌───────────────────┐
-│ React app            │ ─────────────► │ vsitebill-api     │ ──► Postgres (vsitebill-db)
+│ React app            │ ─────────────► │ vsitebill-api     │ ──► Postgres (Supabase)
 │ (static files on     │   JWT bearer   │ Flask + gunicorn  │ ──► Supabase Storage
 │  vsitebill-app)      │                │                   │       (bill photos, S3 API)
 │ IndexedDB upload     │ ◄── photo ──── │ /uploads/<file>   │ ──► Google Drive API
@@ -130,7 +130,7 @@ Schema changes go through Flask-Migrate (`backend/migrations/`); see the README.
 |---|---|
 | Frontend | Render static site `vsitebill-app` → https://vsitebill-app.onrender.com |
 | Backend | Render web service `vsitebill-api` → https://vsitebill-api.onrender.com. Start command: `flask db upgrade && gunicorn app:app` |
-| Database | Render Postgres `vsitebill-db` (free tier, **expires 2026-10-19 unless upgraded**) |
+| Database | Supabase Postgres, project `VsiteBilll-DB` (Singapore, free plan), through the session pooler, since 2026-10-16. Free projects pause after about a week with no use. (Before: Render Postgres `vsitebill-db`, free tier, expired 2026-10-19.) |
 | Photos | Supabase project → Storage bucket `siteverify-bills` |
 | Google OAuth client | Google Cloud Console (Workspace domain `sustaniq.in`, consent screen "Internal") |
 
@@ -142,7 +142,7 @@ Render dashboard.
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Postgres connection (linked from `vsitebill-db`). Unset locally, which means SQLite |
+| `DATABASE_URL` | Postgres connection: the Supabase session pooler URL, set by hand on Render. Unset locally, which means SQLite |
 | `FLASK_APP` | `app.py`, so `flask db upgrade` can find the app |
 | `JWT_SECRET` | signs login tokens |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google sign-in for Drive and the payment sheet (the OAuth client also needs the Google Sheets API enabled in its Cloud project) |

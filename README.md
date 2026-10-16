@@ -12,7 +12,7 @@ project.
   https://claude.ai/code/artifact/b63f0fa5-c550-4459-85e0-6646b4a24850
 
 Stack: React 19 + TypeScript + Vite + Tailwind (PWA, offline upload queue) · Flask + SQLAlchemy +
-Flask-Migrate · Postgres on Render · Supabase Storage for photos · Google Drive API.
+Flask-Migrate · Postgres on Supabase · Supabase Storage for photos · Google Drive API.
 
 ---
 

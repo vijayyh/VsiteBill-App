@@ -25,6 +25,13 @@ session log). The old Render database is untouched and is the fallback until it 
   copy). `NEW_DATABASE_URL` is the **live** database's password: delete both lines once you no
   longer need them.
 - The original Supabase project (VsiteBilll App, Sydney) still holds the bill photos; unchanged.
+- **Checked the same day on the live site, all roles**, including a full test bill (sent, OCR,
+  matched) that was then deleted again: everything works on Supabase. See the session log.
+
+**Next (the user):** change the live admin password (open item 14); delete the two extra
+`*_DATABASE_URL` lines from the office `backend/.env`; on or after 2026-10-19, open the live site
+once to confirm it still logs in after Render deletes its old database. Then the free uptime
+pinger and the security items (open items 1, 3, 13).
 
 **The office PC is now in sync with home (2026-10-16):** `main` pulled, backend deps installed,
 local database at 9e1dcf0e6229, frontend and native-app `npm install` done, and the office
@@ -205,6 +212,13 @@ production photo bucket; blank them in the environment when creating test bills.
      (`+91 98200 00009`); `9820000009` is rejected. Fix on the server: compare digits only.
    - Local dev only: in the Vite dev preview, bill photos don't load from the local backend (the
      dev service worker's `/uploads` CacheFirst rule fails the fetch). Live photos load fine.
+13. **Admin Overview: listing Shared Drives returns 500** (seen 2026-10-16, not caused by the
+   database move). `GET /api/admin/drive/shared-drives` → Google 403 "insufficient authentication
+   scopes" on `drives.list`, although the stored grant includes `drive.metadata.readonly`. Saving to
+   My Drive works; only the Shared Drive choice can't load. Fix options: have the endpoint answer an
+   empty list (or a clear message) on that 403, or request a broader Drive scope (not wanted).
+14. **Change the live admin password** (`demo1234` is in the public repo and was pasted in chat on
+   2026-10-16): admin Profile → Change password, done by the user.
 
 ---
 
@@ -253,6 +267,20 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   identical (nothing written to Render in between).
 - Docs: `render.yaml` (DATABASE_URL no longer linked to `vsitebill-db`; the database block
   removed), `docs/PROJECT_OVERVIEW.md`, `README.md`.
+- **Full live check after the move.** Supervisor (demo button): home, My bills, project page,
+  alerts, profile. Accountant (demo button, 1.5 s login when awake): dashboard, review queue, bill
+  review with an old full-size photo, Payment tab (PAY-0002, row 5, ₹54,922.00), projects with Drive
+  links, alerts. Admin (the user logged in): Overview (Drive + payment sheet connected), Users,
+  Projects, Bills, Profile. Render log: no database errors; the only error is open item 13.
+- **Full bill flow on the live site, then removed.** At the user's request: the demo supervisor
+  sent a "TEST Vendor DeleteMe" bill with a generated photo (OCR filled vendor, bill no., date, PO,
+  qty 15, total ₹4,500); it saved as bill 11 (sequences fine) with its item, OCR scan, history and
+  the office alert; the demo accountant matched it (supervisor got "Bill matched"). Not approved for
+  payment and not saved to Drive. Then deleted by id after re-checking each row (2 alerts, 1 OCR
+  scan, 2 history rows, 1 item, the bill) and the photo from storage; a compare with the untouched
+  Render copy was identical again. Used 1 Vision read.
+- Also: a doc "SiteVerify hosting, costs and free limits" (claude.ai artifact) summarising the move,
+  every service's free limits, usage and paid options.
 
 ### 2026-10-16 — Office PC synced with home; web app and emulator checked (office)
 

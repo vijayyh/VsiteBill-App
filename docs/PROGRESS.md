@@ -7,7 +7,15 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-16 (home machine, before moving to the office PC)_
+_Last updated: 2026-10-16 (office PC, after syncing from home)_
+
+**The office PC is now in sync with home (2026-10-16):** `main` pulled, backend deps installed,
+local database at 9e1dcf0e6229, frontend and native-app `npm install` done, and the office
+`backend/.env` has the `GOOGLE_*` keys. Tests, lint, build, typecheck all pass; the Bill /
+Payment tabs were checked on the web app and on the emulator's dev build (see the session log).
+No code changed. **The office still can't build a signed phone APK** (the signing key is only on
+the home PC, open item 9); `SiteVerify-Beta-2.3.0.apk` from home is still the latest and matches
+`main`.
 
 **The payment sheet is live** (2026-10-13): the office approves a matched bill for payment and it
 becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register), which colours rows
@@ -193,6 +201,32 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-16 — Office PC synced with home; web app and emulator checked (office)
+
+- `git pull` (15 commits), `pip install -r requirements.txt` (+ dev), `flask db upgrade` to
+  9e1dcf0e6229, `npm install` in `frontend/` and `native-app/`. npm on this PC rewrites some
+  `"peer": true` flags in both lock files; those edits were reverted (no package versions differ).
+- `backend/.env` (office): added `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+  `GOOGLE_VISION_API_KEY`. They were pasted into chat, so rotating them (Next, item 2) now covers
+  these copies too.
+- Verified: backend pytest all pass; frontend lint (warnings only) and build; native
+  `npx tsc --noEmit` and `npx expo lint` clean. tsc first failed with TS2820 on the review route
+  because `native-app/.expo/types/router.d.ts` was stale; starting Expo once regenerates it.
+- Web app at phone size (local backend, S3 blanked): accountant dashboard, review screen Bill /
+  Payment tabs, Payment tab says the sheet isn't connected (correct locally). OCR endpoint answers
+  with the Vision key.
+- Native: debug build for x86_64 (`--max-workers=2`, ~10 min on 7.8 GB RAM), installed on
+  `SiteVerify_Pixel`; the dev client opens with
+  `adb shell am start -a android.intent.action.VIEW -d "siteverify://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081"`.
+  Admin overview, Bills list, review screen Bill and Payment tabs all match the web app.
+- Test bill (delivery 1) and its items, history, OCR scan, notifications and photo were deleted;
+  0 bills locally. Two older photos from 2026-09-19 remain in the office `backend/uploads/`
+  (not from this session; not referenced by any bill).
+- Local only: the office database's stored Drive connection lacks the newer Drive/Sheets
+  permissions (backend logs a 403 on `/drives`, admin overview says "Reconnect Google"). The live
+  site is unaffected.
+- Not done: signed phone APK (no signing key on this PC).
 
 ### 2026-10-13 (evening) — Bill / Payment tabs; approving made safe against repeats (home)
 

@@ -64,6 +64,17 @@ is generated (`npx expo prebuild`) and git-ignored; release signing comes from G
 
 ## Gotchas that have bitten before
 
+- **Work on `main`.** Merge any feature branch into `main` before the session ends.
+- **Checking the live site:** use the login page's demo-role buttons (Site Supervisor, Office /
+  Accountant). Claude must not type passwords into the live site; for the admin view, the user
+  logs in themselves in the browser pane.
+- **Render auto-deploy** after CI passes did not fire once (2026-10-10). After pushing to `main`,
+  check the live site has the change (e.g. grep the website's JS bundle for new text); if not, the
+  user deploys by hand in the Render dashboard.
+- **Payment sheet:** never connect the live register from a local machine; test with a copy (see
+  README). Row locks only behave for real on Postgres (SQLite ignores them), so concurrency changes
+  are checked on a throwaway Postgres as well as with pytest.
+
 - **Backend auto-reload is off** (`use_reloader=False` in `backend/app.py`, because Werkzeug left
   orphaned duplicate processes on Windows). Restart the `siteverify-backend` preview after every
   backend code change.

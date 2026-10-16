@@ -26,6 +26,10 @@ GitHub is the sync point. Three things do **not** travel through git, by design:
 | Local database (`backend/siteverify.db`) | Each machine has its own throwaway dev data | Created by `flask db upgrade`; the real data lives in production Postgres |
 | Claude's memory | Stored per machine | `CLAUDE.md` + `docs/PROGRESS.md` hold everything Claude needs |
 
+**Work on `main`.** Feature branches (e.g. `payment-sheet`) are merged into `main` before a
+session ends, so `main` is always the latest. If a machine is still on an old branch:
+`git checkout main`.
+
 **Starting a session (either machine):**
 
 1. `git pull`
@@ -85,6 +89,15 @@ to reveal each one), with these local-machine differences:
 - Leave `DATABASE_URL` out, so local development uses a SQLite file.
 - `S3_*` is optional. Leave it empty to keep local test photos on local disk. If you fill it in,
   local uploads go into the **same bucket as production**.
+- `GOOGLE_VISION_API_KEY` (bill reading) and `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (Drive and
+  the payment sheet) are the same values as on Render. Without them the app still runs; the bill
+  form just isn't filled in from the photo, and Drive / the payment sheet can't be connected.
+
+**Testing the payment sheet locally:** the local database starts with no Google connection and no
+sheet. Admin → Google Drive → Connect, then Admin → Payment sheet → paste a link. **Never connect
+the live payment register (SiteVerify_Demo_Register) from a local machine**: it holds real payment
+rows now. Make a copy of it in Google Sheets (File → Make a copy), connect the copy, and delete
+the copy (and any test photos in Drive) when done.
 
 ### 4. Create the local database
 
@@ -136,8 +149,17 @@ The backend does **not** auto-reload. Restart it after changing Python code.
 
 ### Android
 
-Everything for the Android app (APK / Google Play) is in [`android/`](android/README.md), with its own
-README covering how it works, the signing key and how to rebuild it.
+There are two Android apps:
+
+- **The native app** (current, React Native + Expo) is in [`native-app/`](native-app/README.md): how
+  to run it on an emulator against the local backend, and how to build a signed release APK. To
+  work on it on a machine, also install **JDK 17** and **Android Studio** (Android SDK + an
+  emulator), then `cd native-app && npm install`. Building a release APK also needs the signing
+  key folder `C:\Users\vijay\SiteVerify-android-signing\` (`siteverify-release.jks` +
+  `PASSWORD.txt`), which is **not in git**: copy it to the other machine by USB or a private
+  drive, never by email or chat. Built APKs (`native-app/*.apk`) are also not in git.
+- **The browser-based app** (older, a Trusted Web Activity of the live site) is in
+  [`android/`](android/README.md).
 
 ### iPhone
 

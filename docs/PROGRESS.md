@@ -7,7 +7,7 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-13 (home machine)_
+_Last updated: 2026-10-16 (home machine, before moving to the office PC)_
 
 **The payment sheet is live** (2026-10-13): the office approves a matched bill for payment and it
 becomes a row in the Google Sheet payment register (SiteVerify_Demo_Register), which colours rows
@@ -16,6 +16,21 @@ site the same day. Later that day the review screen got two tabs (**Bill** and *
 approving was made safe against repeats (see the session log). Native app **2.3.0** has both
 (`native-app/SiteVerify-Beta-2.3.0.apk`, home machine only). On the other machine: `git pull`, then
 `flask db upgrade` in `backend/` if it hasn't run there since 9e1dcf0e6229.
+
+**Switching to the office PC (2026-10-16):** everything is on GitHub (`main`). On the office PC:
+1. `git checkout main` and `git pull`.
+2. `backend/`: `.venv\Scripts\python -m pip install -r requirements.txt`, then
+   `.venv\Scripts\flask db upgrade` (brings the local database up to 9e1dcf0e6229, the payment
+   sheet tables).
+3. `backend/.env`: make sure it has `GOOGLE_VISION_API_KEY`, `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET` (copy from Render → vsitebill-api → Environment; use the new values if
+   they've been rotated). The other keys as in the README.
+4. `frontend/`: `npm install`. `native-app/` (only if working on the phone app): `npm install`,
+   and see `native-app/README.md` (JDK 17, Android SDK, the signing key folder copied over).
+5. Start the previews (`siteverify-backend`, `siteverify-frontend`) and check the review screen's
+   Bill / Payment tabs locally.
+
+APKs are only on the home PC (`native-app/SiteVerify-Beta-2.3.0.apk` is the latest, in OneDrive).
 
 **Next (the user):**
 1. ~~Duplicate row for bill MRL/26-27/158~~: done 2026-10-13, the leftover row was deleted; the

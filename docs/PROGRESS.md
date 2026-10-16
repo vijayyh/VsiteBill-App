@@ -125,6 +125,18 @@ production photo bucket; blank them in the environment when creating test bills.
 
 ### Open items (most urgent first)
 
+0. **Free-plan limits to watch (checked 2026-10-16; skipped for now by the user).** Supabase free:
+   database 26 MB of 500 MB (only ~0.6 MB is app data, the rest is Supabase's own; ~5–10 KB per
+   bill, so years of room); **photo storage 22 MB of 1 GB, the first limit to hit**: 10 photos, of
+   which the 3 from 2–3 Oct are full size (18.3 MB); newer ones ~600 KB (2000 px, JPEG 0.8), so
+   1 GB ≈ 1,700 bills. When storage nears ~50%: (1) re-save the 3 old photos smaller (frees ~17 MB;
+   back up first), (2) 1600 px / 0.75 in both apps after an OCR check (~3,000–4,000 bills per GB),
+   (3) drop Supabase copies of photos already in Drive after 6–12 months, (4) Cloudflare R2 (10 GB
+   free). Render free: 750 instance hours/month shared by all free web services in the workspace,
+   5 GB bandwidth, 500 build minutes, 512 MB RAM (ran out once on 2026-10-13); no card on file, so
+   no charges. Vision: first 1,000 reads/month free, then ₹143.98 per 1,000; ₹500/month budget
+   with a spend cap.
+
 1. **Security: demo admin password is public.** The GitHub repo is public and
    `backend/siteverify/seed.py` contains the demo accounts' phone numbers and password. Production
    was seeded with those accounts on 2026-10-02, so anyone reading the repo can log in to the live

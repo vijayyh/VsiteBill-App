@@ -7,14 +7,21 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 night (home PC, end of session)_
+_Last updated: 2026-10-17 late night (home PC, bill-reading fixes)_
 
 **State at the end of 2026-10-17 (home PC):** `main` is pushed and live (website and API checked
-after the deploy), and everything passes: 175 backend tests, web lint/build, native tsc/lint. The
+after the deploy), and everything passes: 179 backend tests, web lint/build, native tsc/lint. The
 live site was checked with the demo roles (all supervisor and office screens, bill reading on two
 real bills), and a full bill flow (send with reading → office match → alerts) passed on the local
 web app and in the phone app on the emulator. Latest phone app: **2.4.0** (code 104),
 `native-app/SiteVerify-Beta-2.4.0.apk` on the home PC (OneDrive), not in git.
+
+**Bill reading on live, fixed the same night (2026-10-17):** reading a bill with many items crashed
+on live (fcb0a8d: text longer than its Postgres column), and a curved photo's table total became an
+extra empty item (06b5307). Both are server-only: live, no website or APK update needed. The user
+chose **no AI** for bill reading (free and private): the rules are improved bill by bill, so **send
+real bill photos that read wrongly, especially handwritten ones** (kept in `Bill-Samples/`, never
+in git).
 
 **Next (the user):**
 1. Install `SiteVerify-Beta-2.4.0.apk` on the phones (installs over 2.3.0).
@@ -277,6 +284,22 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-17 (late night) — Bill reading: crash on long bills, extra total row (home)
+
+- **Crash (fcb0a8d):** the user's 17-item electrical bill gave a 500 on the live reader (fine
+  locally). Its item summary was 455 characters for a 300-character column; Postgres refuses that,
+  SQLite doesn't. Reading, sending (vendor, PO, the single-item fallback), editing (vendor, item, PO)
+  and alerts (title, body, link) now cut text to the column size. Checked on a throwaway Postgres
+  before and after the fix; 3 tests (`test_text_limits.py`). Live then read the bill (200).
+- **Extra row (06b5307):** on that curved photo the "TOTAL OF AMOUNT" figure lined up with the last
+  item's name and became an empty 18th item. A no-quantity line whose amount is what the rows above
+  add up to is now the total, not a row (`_goods_table`); test in `test_ocr_layouts.py` (fails on
+  the old code). Live now reads it fully: vendor, SSVE/0594, 12/06/2026, 17 items adding up to
+  ₹58,295, SGST/CGST ₹5,246.55, total ₹68,788.10. The two older samples read the same as before.
+- **AI for bill reading:** offered (Gemini free / paid, Claude); the user chose to stay with rules.
+- **Verified:** 179 backend tests; CI green for both; live checked after each deploy. The live
+  checks left a few unattached readings in `ocr_scans` (no bills).
 
 ### 2026-10-17 (late night) — Full test, live and local; native 2.4.0 built (home)
 

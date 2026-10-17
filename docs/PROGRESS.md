@@ -7,12 +7,22 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 night (home PC, APK 2.4.0 built)_
+_Last updated: 2026-10-17 night (home PC, end of session)_
 
-**Home PC in sync and checked (2026-10-17 evening):** the office's six commits pulled and run on the
-home PC: tests, builds and the live deploy all fine, and bill reading checked in the running web
-app and phone app with the two home sample bills (see the session log). APK 2.3.0 is still the
-latest; the office changes didn't touch the phone app.
+**State at the end of 2026-10-17 (home PC):** `main` is pushed and live (website and API checked
+after the deploy), and everything passes: 175 backend tests, web lint/build, native tsc/lint. The
+live site was checked with the demo roles (all supervisor and office screens, bill reading on two
+real bills), and a full bill flow (send with reading → office match → alerts) passed on the local
+web app and in the phone app on the emulator. Latest phone app: **2.4.0** (code 104),
+`native-app/SiteVerify-Beta-2.4.0.apk` on the home PC (OneDrive), not in git.
+
+**Next (the user):**
+1. Install `SiteVerify-Beta-2.4.0.apk` on the phones (installs over 2.3.0).
+2. On phones that use the website: Camera settings → turn off HEIF / "High efficiency", so gallery
+   photos are JPEG (HEIC conversion was removed; see below).
+3. Still open from before: change the live admin password; delete the two extra `*_DATABASE_URL`
+   lines from the office `backend/.env`; on or after 2026-10-19 check the live site still logs in
+   (Render deletes its old database); rotate the Google OAuth secret and Vision key.
 
 **HEIC photo conversion removed again (2026-10-17 night), at the user's request.** It had been
 added that day (server conversion, then also a decoder on the phone), but the user doesn't want

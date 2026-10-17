@@ -254,31 +254,54 @@ QTY_HEADER = re.compile(r"^(?:QTY|QUANTITY|QNTY|QUANT)\b", re.I)
 TOTAL_ROW = re.compile(r"\b(?:TOTAL|SUB\s*TOTAL|GRAND)\b", re.I)
 # Vision often reads the rupee sign as R, Z, ? or `.
 CURRENCY = re.compile(r"^(?:₹|RS\.?|INR|R|Z|\?|`)\s*(?=\d)", re.I)
-TAX_LINE = re.compile(r"^(?:ADD\s*[:\-]?\s*)?(?:OUTPUT\s+)?(CGST|SGST|UTGST|IGST)\b", re.I)
+TAX_LINE = re.compile(
+    r"^(?:ADD\s*[:\-]?\s*)?(?:@?\s*\d{1,2}(?:\.\d+)?\s*%\s*)?(?:OUTPUT\s+)?(CGST|SGST|UTGST|IGST)\b", re.I
+)
 GRAND_TOTAL = re.compile(
     r"\b(?:TOTAL\s+(?:INVOICE\s+)?(?:AMOUNT|VALUE)|GRAND\s+TOTAL|NET\s+(?:AMOUNT|PAYABLE|TOTAL)|"
     r"INVOICE\s+(?:TOTAL|VALUE|AMOUNT)|AMOUNT\s+PAYABLE|BILL\s+AMOUNT)\b",
     re.I,
 )
 TAXABLE_LABEL = re.compile(r"\b(?:TAXABLE\s+(?:VALUE|AMOUNT)|SUB\s*-?\s*TOTAL)\b", re.I)
-SELLER_LABEL = re.compile(r"^(?:SOLD\s+BY|SELLER|SUPPLIER|VENDOR)\b\s*[:\-]?\s*", re.I)
+SELLER_LABEL = re.compile(
+    r"^(?:SOLD\s+BY|SELLER|SUPPLIER|VENDOR|PAYEE|(?:LABOU?R\s+|SUB[\s-]?)?CONTRACTOR|"
+    r"(?:PARTY|CONTRACTOR|SUPPLIER|VENDOR)(?:'?S)?\s+NAME|NAME\s+OF\s+(?:THE\s+)?(?:CONTRACTOR|SUPPLIER|VENDOR|PARTY))"
+    r"\b\s*[:\-]?\s*",
+    re.I,
+)
 
-# The seller's name is the prominent line at the top that isn't a document title, an address or
-# contact line, or the buyer (us).
+# The seller's name is the prominent line at the top that isn't a document title, a tagline, an
+# address or contact line, or the buyer (us).
 COMPANY_WORDS = re.compile(
-    r"\b(?:LTD|LIMITED|PVT|PRIVATE|LLP|TRADERS?|TRADING|ENTERPRISES?|INDUSTRIES|INDUSTRY|CORPORATION|"
-    r"CORP|AGENC(?:Y|IES)|SUPPLIERS?|SUPPLY|COMPANY|CO|SONS|BROTHERS|BROS|STEELS?|CEMENTS?|HARDWARE|"
-    r"MATERIALS?|BUILDERS?|ENGINEERING|ENGINEERS|WORKS|CONSTRUCTIONS?|INFRA|MINERALS|CHEMICALS|PAINTS)\b",
+    r"\b(?:LTD|LIMITED|PVT|PRIVATE|LLP|TRADERS?|TRADING|TRADELINKS?|ENTERPRISES?|INDUSTRIES|INDUSTRY|"
+    r"CORPORATION|CORP|AGENC(?:Y|IES)|SUPPLIERS?|SUPPLY|COMPANY|CO|SONS|BROTHERS|BROS|ASSOCIATES|"
+    r"STEELS?|CEMENTS?|HARDWARES?|MATERIALS?|BUILDERS?|ENGINEERING|ENGINEERS|WORKS|CONSTRUCTIONS?|INFRA|"
+    r"MINERALS|CHEMICALS|PAINTS|ELECTRICALS?|ELECTRIC|ELECTRONICS|SANITARY|PLUMBING|TILES|TIMBERS?|PLY|"
+    r"PLYWOOD|GLASS|ALUMINI?UM|FABRICATORS?|CONTRACTORS?|SERVICES|SOLUTIONS|SYSTEMS|TECHNOLOG(?:Y|IES)|"
+    r"MART|STORES?|CENT(?:RE|ER)|DEPOT|EMPORIUM|LOGISTICS|TRANSPORTS?|CARRIERS|CONCRETE|RMC|AGGREGATES|"
+    r"BRICKS|EXPORTS?|IMPORTS?|OVERSEAS|INTERNATIONAL)\b",
     re.I,
 )
 NOT_A_NAME = re.compile(
     r"\b(?:CHALLAN|INVOICE|BILL\s+OF\s+SUPPLY|ESTIMATE|QUOTATION|ORIGINAL|DUPLICATE|TRIPLICATE|COPY|"
     r"RECIPIENT|TRANSPORTER|GSTIN|GST|PAN|CIN|PHONE|PH|MOB|MOBILE|TEL|FAX|EMAIL|E-MAIL|WEBSITE|WWW|"
     r"ADDRESS|ROAD|RD|STREET|NAGAR|MARG|DIST|DISTRICT|TALUKA|PIN|PINCODE|STATE|CODE|DATE|NO|SUBJECT|"
-    r"JURISDICTION|DEALERS?\s+IN|MANUFACTURERS?\s+OF|SPECIALIST|AUTHORISED|AUTHORIZED)\b",
+    r"JURISDICTION|SPECIALIST|AUTHORISED|AUTHORIZED|IRN|ACK|E-WAY|NOTE|TERMS|PAYMENT|REFERENCES?|DISPATCH|"
+    r"DESTINATION|VEHICLE|LADING|CONTACT)\b",
     re.I,
 )
-BUYER_MARKER = re.compile(r"^(?:TO\b|M/S\b|CONSIGNEE|BUYER|BILL\s+TO|SHIP\s+TO|DELIVER(?:Y|ED)\s+TO|RECEIVER|CUSTOMER)", re.I)
+# A tagline under the name says what the seller does, never who it is, even with trade words in it:
+# "(We Supply the all type electrical Materials)", "Dealers in Cement & Steel".
+TAGLINE = re.compile(
+    r"^\(.*\)$|\bWE\s+(?:SUPPLY|DEAL|ARE|SPECIALI[SZ]E)\b|\bDEAL(?:S|ERS?)\s+(?:IN|OF)\b|"
+    r"\bSUPPLIERS?\s+OF\b|\bMANUFACTURERS?\s+(?:OF|&)|\bALL\s+(?:TYPES?|KINDS?)\b|\bSPECIALISTS?\s+IN\b|"
+    r"\bSTOCKISTS?\b|\bAUTHORI[SZ]ED\s+(?:DEALER|DISTRIBUTOR)",
+    re.I,
+)
+BUYER_MARKER = re.compile(r"^(?:TO\b|CONSIGNEE|BUYER|BILL\s+TO|SHIP\s+TO|DELIVER(?:Y|ED)\s+TO|RECEIVER|CUSTOMER)", re.I)
+# "M/s." comes before a name: the buyer's on a challan ("To, M/s KH Group"), the seller's own on
+# many e-invoices ("M/s.Mehta Trading Co."), so it is dropped from the name, never taken as a marker.
+MESSRS = re.compile(r"^M\s*/\s*S\b\.?\s*", re.I)
 SIGNATURE = re.compile(r"^\s*FOR\s*[,:]?\s*(?:M/?S\.?\s*)?(.{3,})$", re.I)
 
 
@@ -415,15 +438,28 @@ def _beside(page, label_words, accept):
     lcy = sum(w.cy for w in label_words) / len(label_words)
     h = max(w.h for w in label_words)
     right = [l for l in page.lines if l.x0 >= lx1 - 2 and l.x0 - lx1 < 15 * h and abs(l.cy - lcy) <= 0.9 * h]
-    below = [
-        l
-        for l in page.lines
-        if l.y0 >= ly1 - 2 and l.y0 - ly1 <= 2.5 * h and min(l.x1, lx1 + 2 * h) - max(l.x0, lx0 - 2 * h) > 0
-    ]
+
+    def under(line):
+        """The words of a line below that sit under the label: "282264874489 12-Aug-26" under
+        "e-Way Bill No.  Dated" has the date under "Dated"."""
+        words = [w for w in line.words if lx0 - 2 * h <= w.cx <= lx1 + 6 * h]
+        return words if words and len(words) < len(line.words) else None
+
+    column = [l for l in page.lines if l.y0 >= ly1 - 2 and min(l.x1, lx1 + 2 * h) - max(l.x0, lx0 - 2 * h) > 0]
+    below = [l for l in column if l.y0 - ly1 <= 2.5 * h]
     for line in sorted(right, key=lambda l: l.x0) + sorted(below, key=lambda l: l.y0):
-        value = accept(line.text)
-        if value:
-            return _field(value, line.confidence)
+        for words in filter(None, (line.words, under(line))):
+            value = accept(_join(words))
+            if value:
+                return _field(value, _mean_confidence(words))
+    # In a boxed header the value can sit further down its box ("INVOICE NO-" at the top of the
+    # box, "SSVE/0594" at the bottom): then it is the very next thing below the label.
+    nearest = min((l for l in column if l.y0 - ly1 <= 7 * h), key=lambda l: l.y0, default=None)
+    if nearest:
+        for words in filter(None, (nearest.words, under(nearest))):
+            value = accept(_join(words))
+            if value:
+                return _field(value, _mean_confidence(words) * 0.95)
     return None
 
 
@@ -474,7 +510,7 @@ def _vendor(page):
         return any(name in lowered for name in buyer_names)
 
     def a_name(text):
-        text = _clean(text)
+        text = _clean(MESSRS.sub("", _clean(text)))
         return text if sum(c.isalpha() for c in text) >= 3 and not is_buyer(text) else None
 
     # "Sold By: Buildingshop.in" names the seller outright.
@@ -489,17 +525,24 @@ def _vendor(page):
                 return found
 
     # The buyer's block ("To, M/s KH Group …") starts where the seller's header ends.
-    buyer_start = min((l.y0 for l in lines if BUYER_MARKER.match(l.text.strip())), default=bottom)
+    buyer_start = min(
+        (l.y0 for l in lines if BUYER_MARKER.match(l.text.strip()) or (MESSRS.match(l.text.strip()) and is_buyer(l.text))),
+        default=bottom,
+    )
     heights = sorted(l.height for l in lines)
     typical = heights[len(heights) // 2]
 
     best, best_score = None, 0.0
     for line in lines:
-        text = _clean(line.text)
+        text = _clean(MESSRS.sub("", _clean(line.text)))
         letters = sum(c.isalpha() for c in text)
         if line.y0 > top + 0.4 * span or line.y0 >= buyer_start or letters < 4 or len(text) > 70:
             continue
-        if is_buyer(text) or (NOT_A_NAME.search(text) and not COMPANY_WORDS.search(text)):
+        # Text printed sideways up the margin (a GSTIN, "Subject to … jurisdiction") reads as very
+        # tall: never the name across the top.
+        if line.y1 - line.y0 > 2 * (line.x1 - line.x0):
+            continue
+        if is_buyer(text) or TAGLINE.search(_clean(line.text)) or (NOT_A_NAME.search(text) and not COMPANY_WORDS.search(text)):
             continue
         if sum(c.isdigit() for c in text) > letters / 2:
             continue
@@ -566,6 +609,7 @@ class Table:
     totals: dict  # column kind → (number, confidence) on the table's Total row
     top: float
     bottom: float
+    slope: float = 0.0  # how its last rows tilt (a photo taken at an angle)
 
 
 def _column_kind(text):
@@ -657,6 +701,22 @@ def _goods_table(page):
         return None
     h = qty_header.h
     top, bottom = qty_header.y0 - 0.9 * h, qty_header.y1 + 1.0 * h
+    # The heading row ends where the first quantity starts: a first row printed close under the
+    # headings is a row, not part of them.
+    first_qty = min(
+        (
+            w
+            for w in page.words
+            if w is not qty_header
+            and qty_header.y1 - 0.25 * h <= w.y0 < qty_header.y1 + 2.5 * h
+            and min(w.x1, qty_header.x1 + h) - max(w.x0, qty_header.x0 - h) > 0
+            and _to_number(w.text) is not None
+        ),
+        key=lambda w: w.y0,
+        default=None,
+    )
+    if first_qty:
+        bottom = min(bottom, first_qty.y0 - 0.1 * h)
     columns = _columns([w for w in page.words if top <= w.cy <= bottom], h)
     qty_col = next(c for c in columns if qty_header in c.words)
     qty_col.kind = "qty"
@@ -664,13 +724,38 @@ def _goods_table(page):
     for column in columns:
         by_kind.setdefault(column.kind, column)
     desc = by_kind.get("desc")
-    desc_word = next((w for w in desc.words if DESC_HEADER_WORD.match(w.text)), desc.words[0]) if desc else None
+    # The heading word on the same line as "Qty" ("Description of" over "Goods and Services": the
+    # first), so the heading row's tilt is measured along one line.
+    desc_word = (
+        min(
+            [w for w in desc.words if DESC_HEADER_WORD.match(w.text)] or desc.words,
+            key=lambda w: abs(w.cy - qty_header.cy),
+        )
+        if desc
+        else None
+    )
+    serial_col = None
+    if desc is not None and columns.index(desc) > 0:
+        # Descriptions are written from the left edge of their column, which starts right after the
+        # column before it (the Sr. No.), not halfway to a centred "Description" heading. Where the
+        # serial numbers themselves end says it best ("Sr. No." can be printed wider than "12").
+        serial_col = columns[columns.index(desc) - 1]
+        left = serial_col.x1 + 0.1 * h
+        serial_ends = sorted(
+            w.x1
+            for w in page.words
+            if w.cx < desc.left and w.cy > bottom and w.x0 >= serial_col.left and re.fullmatch(r"\(?\d{1,3}[.)]?", w.text)
+        )
+        if serial_ends:
+            left = min(left, serial_ends[len(serial_ends) // 2] + 0.1 * h)
+        desc.left = min(desc.left, left)
+        serial_col.right = desc.left
 
     # Rows run parallel to the heading row, which allows for a slightly tilted photo.
     dx = qty_header.cx - desc_word.cx if desc_word else 0
     slope = (qty_header.cy - desc_word.cy) / dx if abs(dx) > 1 else 0.0
 
-    below = [w for w in page.words if w.cy > bottom and w.cy - bottom < 40 * h]
+    below = [w for w in page.words if w.cy > bottom and w.cy - bottom < 120 * h]
     total_word = min((w for w in below if TOTAL_ROW.search(w.text)), key=lambda w: w.cy, default=None)
     values = []
     for w in sorted(below, key=lambda w: w.cy):
@@ -680,25 +765,88 @@ def _goods_table(page):
             break
         if _to_number(w.text) is None or (values and _on_row(w, values[-1], slope)):
             continue
+        # A long table runs on row after row; a number well past the last row is something else.
+        if values and w.cy - values[-1].cy > 10 * h:
+            break
         values.append(w)
     if not values:
         return None
 
     end = total_word.y0 if total_word else values[-1].y1 + 2.5 * h
+
+    # Charge lines ("Transport Charges" with an HSN code and an amount but no quantity) are rows of
+    # their own, so they aren't read as part of the item above and their amount isn't lost.
+    amount_col = by_kind.get("amount") or by_kind.get("line_total")
+    charges = []
+    if amount_col is not None and desc is not None:
+        for w in sorted(page.words, key=lambda w: w.cy):
+            if not (amount_col.holds(w) and values[0].cy + 0.5 * h < w.cy < end and _money(w.text) is not None):
+                continue
+            if any(_on_row(w, v, slope) for v in values) or any(_on_row(w, c, slope) for c in charges):
+                continue
+            named = _join(sorted((x for x in page.words if desc.holds(x) and _on_row(x, w, slope)), key=lambda x: x.x0))
+            row_text = _join(sorted((x for x in page.words if x.x1 < amount_col.left and _on_row(x, w, slope)), key=lambda x: x.x0))
+            if sum(c.isalpha() for c in named) >= 3 and not NOT_A_CHARGE.search(row_text):
+                charges.append(w)
+    quantity_of = {id(v): v for v in values}
+    values = sorted(values + charges, key=lambda w: w.cy)
     # Descriptions printed above the first quantity mean quantities sit mid-row (multi-line rows);
     # otherwise each row starts at its quantity.
     centred = desc is not None and any(
         desc.holds(w) and bottom < w.cy < values[0].y0 - 0.3 * h for w in page.words
     )
 
-    def cell(column, anchor):
+    # A photo taken at an angle tilts rows more towards the foot of the page than the heading row
+    # shows. A row's own serial number (left) and quantity (right) give its tilt.
+    slopes = [slope] * len(values)
+    if serial_col is not None:
+        serials = [
+            w
+            for w in page.words
+            if serial_col.holds(w) and bottom < w.cy < end + h and re.fullmatch(r"\(?\d{1,3}[.)]?", w.text)
+        ]
+        matched = {}
+        for i, value in enumerate(values):
+            near = [
+                s
+                for s in serials
+                if id(s) not in matched.values()
+                and abs(s.cx - value.cx) > 1
+                and abs(s.cy - (value.cy + slope * (s.cx - value.cx))) <= 1.2 * max(s.h, value.h)
+            ]
+            if near:
+                s = min(near, key=lambda s: abs(s.cy - (value.cy + slope * (s.cx - value.cx))))
+                matched[i] = id(s)
+                slopes[i] = (s.cy - value.cy) / (s.cx - value.cx)
+        if matched:
+            known = sorted(matched)
+            for i in range(len(values)):
+                if i not in matched:
+                    slopes[i] = slopes[min(known, key=lambda k: abs(k - i))]
+
+    def rel(w, i):
+        """How far below row i's line a word sits."""
+        return w.cy - (values[i].cy + slopes[i] * (w.cx - values[i].cx))
+
+    def in_row(i):
+        def holds(w):
+            if not (bottom < w.cy and (i + 1 < len(values) or w.cy < end)):
+                return False
+            if centred:
+                return all(abs(rel(w, i)) <= abs(rel(w, j)) for j in (i - 1, i + 1) if 0 <= j < len(values))
+            top_of = lambda j: -(values[j].h / 2 + 0.3 * h)
+            return (i == 0 or rel(w, i) > top_of(i)) and (i + 1 == len(values) or rel(w, i + 1) < top_of(i + 1))
+
+        return holds
+
+    def cell(column, anchor, row_slope=slope):
         if column is None:
             return []
-        return sorted((w for w in page.words if column.holds(w) and _on_row(w, anchor, slope)), key=lambda w: w.x0)
+        return sorted((w for w in page.words if column.holds(w) and _on_row(w, anchor, row_slope)), key=lambda w: w.x0)
 
-    def money_in(column, anchor):
+    def money_in(column, anchor, row_slope=slope):
         """The amount in a column on a row, and how sure the reading is."""
-        words = cell(column, anchor)
+        words = cell(column, anchor, row_slope)
         if not words:
             return None
         joined = _money("".join(w.text for w in words))
@@ -711,29 +859,40 @@ def _goods_table(page):
         best = min(numbers, key=lambda w: (max(0.0, column.x0 - w.x1, w.x0 - column.x1), abs(w.cy - anchor.cy)))
         return _money(best.text), best.confidence
 
-    def amount_in(column, anchor):
-        found = money_in(column, anchor)
+    def amount_in(column, anchor, row_slope=slope):
+        found = money_in(column, anchor, row_slope)
         return found[0] if found else None
 
     rows = []
     for i, value in enumerate(values):
-        if i == 0:
-            lower = bottom
-        else:
-            lower = (values[i - 1].cy + value.cy) / 2 if centred else value.y0 - 0.3 * h
-        if i + 1 < len(values):
-            nxt = values[i + 1]
-            upper = (value.cy + nxt.cy) / 2 if centred else nxt.y0 - 0.3 * h
-        else:
-            upper = end
-        description, desc_words = _description(page, desc, desc_word, lower, upper)
-        unit_words = [w for w in cell(by_kind.get("unit"), value) if _money(w.text) is None]
+        tilt = slopes[i]
+        description, desc_words = _description(page, desc, desc_word, in_row(i), serials_apart=serial_col is not None)
+        if id(value) not in quantity_of:
+            # A charge line: its amount, nothing to count.
+            name_confidence = _mean_confidence(desc_words) if desc_words else 0.7
+            rows.append(
+                {
+                    "description": description,
+                    "quantity": None,
+                    "unit": None,
+                    "rate": None,
+                    "amount": _money(value.text),
+                    "line_total": None,
+                    "tax_amount": None,
+                    "tax_type": "",
+                    "name_confidence": name_confidence,
+                    "quantity_confidence": value.confidence,
+                    "confidence": min(name_confidence, value.confidence),
+                }
+            )
+            continue
+        unit_words = [w for w in cell(by_kind.get("unit"), value, tilt) if _money(w.text) is None]
         if not unit_words:
             # "480 Bags" in the quantity cell itself.
-            unit_words = [w for w in cell(qty_col, value) if w is not value and _to_number(w.text) is None][:1]
-        rate = money_in(by_kind.get("rate"), value)
-        amount = money_in(by_kind.get("amount"), value)
-        line_total = money_in(by_kind.get("line_total"), value)
+            unit_words = [w for w in cell(qty_col, value, tilt) if w is not value and _to_number(w.text) is None][:1]
+        rate = money_in(by_kind.get("rate"), value, tilt)
+        amount = money_in(by_kind.get("amount"), value, tilt)
+        line_total = money_in(by_kind.get("line_total"), value, tilt)
         if amount is None and not any(k.startswith("tax") for k in by_kind):
             amount = line_total  # a single "Total" column with no tax columns is the line amount
         name_confidence = _mean_confidence(desc_words) if desc_words else 0.7
@@ -745,8 +904,8 @@ def _goods_table(page):
                 "rate": rate and rate[0],
                 "amount": amount and amount[0],
                 "line_total": line_total and line_total[0],
-                "tax_amount": amount_in(by_kind.get("tax_amount"), value),
-                "tax_type": _join(cell(by_kind.get("tax_type"), value)).upper(),
+                "tax_amount": amount_in(by_kind.get("tax_amount"), value, tilt),
+                "tax_type": _join(cell(by_kind.get("tax_type"), value, tilt)).upper(),
                 "name_confidence": name_confidence,
                 "quantity_confidence": value.confidence,
                 # The row as a whole: the office should look again if any of it is uncertain.
@@ -754,21 +913,25 @@ def _goods_table(page):
             }
         )
 
+    # Below the table (its Total row, the GST lines) the rows keep the tilt of its last row.
+    foot_slope = slopes[-1]
     totals = {}
     if total_word:
         for kind in ("qty", "amount", "line_total", "tax_amount"):
             column = qty_col if kind == "qty" else by_kind.get(kind)
-            found = money_in(column, total_word) if column else None
+            found = money_in(column, total_word, foot_slope) if column else None
             if found is not None:
                 totals[kind] = found
-    return Table(columns=columns, rows=rows, totals=totals, top=top, bottom=end)
+    return Table(columns=columns, rows=rows, totals=totals, top=top, bottom=end, slope=foot_slope)
 
 
 DESC_HEADER_WORD = re.compile(r"^(?:DESCRIPTION|PARTICULARS|ITEMS?|MATERIALS?|GOODS|PRODUCTS?)\b", re.I)
+# Lines inside a goods table that carry an amount but are not something bought.
+NOT_A_CHARGE = re.compile(r"\b(?:ROUND(?:ED|ING)?\s*OFF|DISCOUNT|LESS|TOTAL|C?GST|SGST|IGST|UTGST|TAX|CESS|ADVANCE)\b", re.I)
 
 
-def _description(page, desc, desc_word, lower, upper):
-    """A row's description: its lines in the Description column between `lower` and `upper`, in
+def _description(page, desc, desc_word, in_row, serials_apart=False):
+    """A row's description: its lines in the Description column on that row (`in_row`), in
     reading order, without the serial number or an HSN/SAC code line."""
     if desc is None:
         return "", []
@@ -776,16 +939,20 @@ def _description(page, desc, desc_word, lower, upper):
     for line in sorted(page.lines, key=lambda l: (l.y0, l.x0)):
         words = []
         for w in line.words:
-            if not (lower < w.cy < upper and desc.left <= w.cx < desc.reach):
+            if not (desc.left <= w.cx < desc.reach and in_row(w)):
                 continue
-            # A plain number left of the heading is the row's serial number (the Sr. No. column).
-            if w.x1 <= desc_word.x0 and re.fullmatch(r"\(?\d{1,3}[.)]?", w.text):
+            # With no Sr. No. column of its own, a plain number starting the row left of the heading
+            # is its serial number. With one, a number here is part of the name ("32 Amp Top").
+            if not serials_apart and not words and w.x1 <= desc_word.x0 and re.fullmatch(r"\(?\d{1,3}[.)]?", w.text):
                 continue
             # Past the middle of the gap, a number on its own is the next column's.
             if w.cx >= desc.right and _money(w.text) is not None and not (words and w.x0 - words[-1].x1 <= 0.5 * w.h):
                 continue
             words.append(w)
         if not words or re.match(r"(?:HSN|SAC)\b", words[0].text, re.I):
+            continue
+        # "Round Off", "Less: Discount", "Output CGST" under the last item are not part of its name.
+        if NOT_A_CHARGE.match(_join(words)):
             continue
         picked += words
         parts.append(_join(words))
@@ -849,15 +1016,17 @@ def _rows_without_table(page):
 # ── Money: taxable amount, GST, total ───────────────────────────────────────────────────────────
 
 
-def _amount_beside(page, line, match):
+def _amount_beside(page, line, match, slope=0.0):
     """The amount printed on the same row as a label, to its right: the right-most number that
-    isn't a percentage ("CGST  9.00%  54263.13")."""
+    isn't a percentage ("CGST  9.00%  54263.13"). On a photo taken at an angle the row tilts
+    (`slope`), so the amount at the far right sits higher or lower than its label."""
     label = _words_in_span(line, match.start(), match.end())
     lx1, lcy = max(w.x1 for w in label), sum(w.cy for w in label) / len(label)
+    lcx = sum(w.cx for w in label) / len(label)
     h = max(w.h for w in label)
     candidates = []
     for w in page.words:
-        if w.x0 > lx1 - 1 and abs(w.cy - lcy) <= 1.0 * h and "%" not in w.text:
+        if w.x0 > lx1 - 1 and abs(w.cy - (lcy + slope * (w.cx - lcx))) <= 1.0 * h and "%" not in w.text:
             value = _money(w.text)
             if value is not None:
                 candidates.append((w.x0, value, w.confidence))
@@ -867,15 +1036,46 @@ def _amount_beside(page, line, match):
     return _field(value, min(confidence, line.confidence))
 
 
+def _unlabelled_total(page, line, match, slope, expected):
+    """The amount on the row just below a label's row, to its right, if it is `expected`. A decimal
+    point the reader saw as a space ("68788 10") is read back in."""
+    label = _words_in_span(line, match.start(), match.end())
+    lx1, h = max(w.x1 for w in label), max(w.h for w in label)
+    lcx, lcy = sum(w.cx for w in label) / len(label), sum(w.cy for w in label) / len(label)
+    near = sorted(
+        (w for w in page.words if w.x0 > lx1 - 1 and 0.5 * h < w.cy - (lcy + slope * (w.cx - lcx)) <= 2.5 * h),
+        key=lambda w: w.x0,
+    )
+    readings = []
+    for w, nxt in zip(near, near[1:] + [None]):
+        readings.append((_money(w.text), w.confidence))
+        if (
+            nxt is not None
+            and re.fullmatch(r"\d[\d,]*", w.text)
+            and re.fullmatch(r"\d{2}", nxt.text)
+            and nxt.x0 - w.x1 < 1.5 * w.h
+            and abs(nxt.cy - w.cy) < 0.5 * w.h
+        ):
+            readings.append((_money(f"{w.text}.{nxt.text}"), min(w.confidence, nxt.confidence)))
+    close = [(value, confidence) for value, confidence in readings if value is not None and abs(value - expected) <= 1.0]
+    if not close:
+        return None
+    value, confidence = min(close, key=lambda vc: abs(vc[0] - expected))
+    return _field(value, max(confidence, ADDS_UP))
+
+
 def _amounts(page, table, rows):
     found = {"taxableAmount": None, "cgst": None, "sgst": None, "igst": None, "totalAmount": None}
     outside = [l for l in page.lines if not (table and table.top <= l.cy <= table.bottom)]
+    slope = table.slope if table else 0.0
 
+    tax_lines = []
     for line in outside:
         match = TAX_LINE.match(line.text.strip())
         if match:
             key = {"CGST": "cgst", "SGST": "sgst", "UTGST": "sgst", "IGST": "igst"}[match.group(1).upper()]
-            found[key] = found[key] or _amount_beside(page, line, match)
+            found[key] = found[key] or _amount_beside(page, line, match, slope)
+            tax_lines.append((line, match))
     if table and not any(found[k] for k in ("cgst", "sgst", "igst")):
         # GST as a column of the goods table ("Tax Type: IGST", "Tax Amount: ₹315.18").
         amounts = [r["tax_amount"] for r in rows if r["tax_amount"] is not None]
@@ -896,7 +1096,7 @@ def _amounts(page, table, rows):
     for line in outside:
         match = TAXABLE_LABEL.search(line.text)
         if match:
-            found["taxableAmount"] = _amount_beside(page, line, match)
+            found["taxableAmount"] = _amount_beside(page, line, match, slope)
             if found["taxableAmount"]:
                 break
     if not found["taxableAmount"] and rows:
@@ -909,10 +1109,18 @@ def _amounts(page, table, rows):
     for line in sorted(outside, key=lambda l: l.y0, reverse=True):
         match = GRAND_TOTAL.search(line.text)
         if match:
-            found["totalAmount"] = _amount_beside(page, line, match)
+            found["totalAmount"] = _amount_beside(page, line, match, slope)
             if found["totalAmount"]:
                 break
     taxes = [found[k] for k in ("cgst", "sgst", "igst") if found[k]]
+    if not found["totalAmount"] and found["taxableAmount"] and taxes and tax_lines:
+        # The grand total printed on the row after the GST lines with no label of its own: taken
+        # only when it is exactly the taxable amount plus the GST.
+        expected = round(found["taxableAmount"]["value"] + sum(t["value"] for t in taxes), 2)
+        last, match = max(tax_lines, key=lambda lm: lm[0].y0)
+        total = _unlabelled_total(page, last, match, slope, expected)
+        if total:
+            found["totalAmount"] = total
     worked_out = False
     if not found["totalAmount"] and rows:
         confidence = min(r["confidence"] for r in rows) * 0.9

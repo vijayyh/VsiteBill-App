@@ -15,6 +15,13 @@ path always gives JPEG). The server now converts such photos to JPEG (`backend/s
 new library `pillow-heif`); see the 2026-10-17 session log. Quick workaround on a phone until it's
 live: Camera settings → turn off HEIF / "High efficiency" photos.
 
+**Bill reading (OCR) fixed on three real bills (2026-10-17), pushed to `main`.** The user found the
+vendor filled with a tagline ("(We Supply the all type electrical Materials)" instead of SHREE
+SIDDHI VINAYAK ELECTRICAL). The parser (`backend/siteverify/ocr.py`) was fixed for that and for
+everything else wrong on the same bills; see the 2026-10-17 OCR session log. **Next: check it in
+the preview/emulator with a real bill photo** (unit tests and the three saved readings pass, the
+form itself wasn't re-checked after these parser changes), then on the live site after the deploy.
+
 **The live database moved to Supabase (2026-10-16), free.** Render's free Postgres expires on
 2026-10-19, so all data was copied to a new free Supabase project **VsiteBilll-DB** (Singapore,
 `ap-southeast-1`, same city as the Render API) and Render's `DATABASE_URL` now points at its
@@ -250,6 +257,36 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-17 — Bill reading: vendor, bill no., date, items and amounts on real bills (office)
+
+- The user's three real bills (a labour payment bill, an electrical tax invoice, a Tally e-invoice)
+  were read once with Vision and the readings kept locally (office scratch folder, not in git: they
+  hold vendors' phone numbers and GSTINs). Parser fixes in `ocr.py`:
+  - Vendor: taglines ("(We supply …)", "Dealers in …", "All types of …") never; more trade words
+    (ELECTRICAL, SANITARY, TILES, …); sideways margin text skipped; "M/s." is dropped from a name
+    and no longer marks the buyer (it starts the seller's own name on e-invoices); "Labour
+    Contractor: X" / "Party Name: X" give X.
+  - Bill no. / date: the value straight under its label even several lines down a boxed header,
+    and only the words under the label ("12-Aug-26" after the e-way bill number).
+  - Goods table: the heading row ends where the first quantity starts (a first row close under the
+    headings was lost); names start at their column's left edge, after the Sr. No. (names were cut
+    at a centred heading and leading numbers like "32 Amp" dropped); each row's tilt from its serial
+    number to its quantity (photos taken at an angle); the heading tilt measured along one heading
+    line (stacked headings gave a false tilt and shifted amounts); charge lines with an amount but
+    no quantity ("Transport Charges") are rows of their own; tables read to their last row (stopped
+    at 40 heading heights before; now at Total or a gap of 10 heights); Round Off / Discount / tax
+    lines never join an item.
+  - Amounts: "9% SGST Tax" recognised; GST lines and the table total use the foot of the table's
+    tilt; an unlabelled grand total under the GST lines is taken only if it equals taxable + GST
+    (also when the decimal point was read as a space, "68788 10").
+- Result on the three bills: labour → vendor Arvind Fitter, bill no., date, total; electrical →
+  everything right (vendor, SSVE/0594, 12/06/2026, all 17 items, ₹58,295 + 2 × ₹5,246.55 =
+  ₹68,788.10); e-invoice → vendor, bill no., date, all 27 rows (incl. 3 transport lines), rows add
+  up to the printed subtotal ₹1,21,620. Still read as printed/seen: "SIDHI" (a binder ring hides a
+  letter), "J**O" read as "JO", "9 3 X10" merged by Vision.
+- `tests/test_ocr_layouts.py`: 11 tests rebuilding each layout with made-up names and numbers.
+  185 backend tests pass.
 
 ### 2026-10-17 — Bill photos from the gallery in HEIC: black preview, no reading (office)
 

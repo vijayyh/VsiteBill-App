@@ -8,7 +8,7 @@ from .models import Delivery, Notification, User
 
 def _add(users, kind: str, title: str, body: str | None = None, link: str | None = None) -> None:
     for user in users:
-        db.session.add(Notification(user_id=user.id, kind=kind, title=title, body=body, link=link))
+        db.session.add(Notification(user_id=user.id, kind=kind, title=title[:200], body=body[:300] if body else body, link=link[:200] if link else link))
 
 
 def bill_uploaded(delivery: Delivery) -> None:

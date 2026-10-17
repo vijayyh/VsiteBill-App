@@ -13,6 +13,8 @@ bp = Blueprint("deliveries", __name__, url_prefix="/api")
 
 ALLOWED_STATUSES = {"PENDING", "REVIEW", "MATCHED"}
 TEXT_FIELDS = {"vendor": "vendor", "item": "item", "poNumber": "po_number", "note": "note"}
+# The longest each can be (its column's size): Postgres refuses anything longer.
+TEXT_LIMITS = {"vendor": 200, "item": 300, "poNumber": 50}
 NUMBER_FIELDS = ("ordered", "delivered")
 
 
@@ -71,8 +73,8 @@ def create_delivery(project_id):
     delivery = Delivery(
         project_id=project.id,
         uploaded_by_id=g.current_user.id,
-        vendor=form.get("vendor", ""),
-        po_number=form.get("poNumber") or None,
+        vendor=form.get("vendor", "")[: TEXT_LIMITS["vendor"]],
+        po_number=form.get("poNumber", "")[: TEXT_LIMITS["poNumber"]] or None,
         invoice_number=lenient(bills.text, form.get("invoiceNumber"), "invoiceNumber", 60),
         bill_date=lenient(bills.bill_date, form.get("billDate")),
         status="PENDING",
@@ -84,7 +86,7 @@ def create_delivery(project_id):
     if not rows:
         # A bill from an app without the items table: its one item and quantity become one row.
         delivered = lenient(bills.number, form.get("delivered"), "delivered")
-        item = form.get("item", "")
+        item = form.get("item", "")[: TEXT_LIMITS["item"]]
         rows = [{"description": item, "quantity": delivered, "unit": None, "rate": None, "amount": None}]
         rows = rows if item or delivered is not None else []
     bills.apply_items(delivery, rows)
@@ -184,7 +186,8 @@ def update_delivery(delivery_id):
 
     for key, column in TEXT_FIELDS.items():
         if key in data:
-            setattr(delivery, column, data[key])
+            value = data[key]
+            setattr(delivery, column, value[: TEXT_LIMITS[key]] if value and key in TEXT_LIMITS else value)
     for key, value in numbers.items():
         setattr(delivery, key, value)
     for column, value in details.items():

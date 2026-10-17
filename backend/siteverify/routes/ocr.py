@@ -40,16 +40,22 @@ def read_bill():
         user_id=g.current_user.id,
         provider=reading.provider,
         text=reading.text,
-        vendor=_value(fields, "vendor"),
-        item=_value(fields, "item"),
+        # Cut to their columns: a bill with many items gives a long item summary, and Postgres
+        # (unlike the local SQLite) refuses text longer than its column.
+        vendor=_cut(_value(fields, "vendor"), 200),
+        item=_cut(_value(fields, "item"), 300),
         delivered=_value(fields, "delivered"),
-        po_number=_value(fields, "poNumber"),
+        po_number=_cut(_value(fields, "poNumber"), 50),
         confidence={key: f["confidence"] for key, f in fields.items() if f},
         reading=fields,
     )
     db.session.add(scan)
     db.session.commit()
     return jsonify({"scanId": scan.id, "fields": scan.fields(), "lowConfidence": ocr.LOW_CONFIDENCE})
+
+
+def _cut(value, limit):
+    return value[:limit] if isinstance(value, str) else value
 
 
 def _value(fields, key):

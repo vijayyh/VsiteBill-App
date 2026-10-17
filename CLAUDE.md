@@ -93,6 +93,11 @@ is generated (`npx expo prebuild`) and git-ignored; release signing comes from G
   timeout), which gunicorn loads automatically. Gunicorn doesn't run on Windows; CI smoke-tests it.
 - **Photos are shrunk in the browser before upload** (`frontend/src/lib/compressImage.ts`), and
   gallery thumbnails lazy-load (`AuthImage`). Keep both when touching the upload or gallery code.
+- **Gallery photos can be HEIC** (many Android phones' "high efficiency" camera setting). Chrome
+  can't show them and Google's reader won't read them, so `backend/siteverify/photos.py` turns any
+  photo that isn't JPEG/PNG/WebP/GIF into a JPEG: for the phone's preview (`POST /api/photos/jpeg`),
+  before reading, and when a bill is saved. Test gallery uploads with a HEIC file, not only the
+  camera (the camera always gives JPEG).
 - **Service worker / offline / update banner can only be tested on a real build.** Use the
   `siteverify-frontend-build` preview (`vite preview` on :4173, run `npm run build` first), not the
   dev server. `UpdateBanner` relies on the existing `autoUpdate` behaviour (skipWaiting +

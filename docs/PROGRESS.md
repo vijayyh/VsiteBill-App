@@ -7,7 +7,13 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-16 (office PC, after the database move)_
+_Last updated: 2026-10-17 (office PC, gallery photo fix)_
+
+**Gallery uploads of HEIC photos fixed (2026-10-17), pushed to `main`.** A supervisor picking a bill from the phone's gallery got a black preview and no reading:
+the phone saves photos as HEIC, which Chrome can't show and Google's reader won't read (the camera
+path always gives JPEG). The server now converts such photos to JPEG (`backend/siteverify/photos.py`,
+new library `pillow-heif`); see the 2026-10-17 session log. Quick workaround on a phone until it's
+live: Camera settings → turn off HEIF / "High efficiency" photos.
 
 **The live database moved to Supabase (2026-10-16), free.** Render's free Postgres expires on
 2026-10-19, so all data was copied to a new free Supabase project **VsiteBilll-DB** (Singapore,
@@ -244,6 +250,37 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-17 — Bill photos from the gallery in HEIC: black preview, no reading (office)
+
+- Reported by the user from a phone (browser-based app): "Choose from gallery" showed a black box
+  with "The bill you photographed" and the bill wasn't read; "Take a photo" worked.
+- Reproduced on the emulator (Android 15, Chrome 124, the system photo picker) against the local
+  backend: JPEG bills from the gallery (also a 48-megapixel one) worked; the same bill as **HEIC**
+  gave exactly the user's screen. Chrome can't decode HEIC, so `compressImage` passed it on as it
+  was; Google Vision doesn't take HEIC (the server also timed out sending the full-size file).
+- Fix:
+  - `backend/siteverify/photos.py`: recognises JPEG/PNG/WebP/GIF from the first bytes (ordinary
+    photos are never decoded); anything else is opened with Pillow + `pillow-heif` (loaded only on
+    first use), shrunk to 2000 px first, turned upright, saved as JPEG 80. One conversion at a time
+    per process. Measured on a 12-megapixel HEIC: ~0.7 s, ~90 MB extra memory briefly (down from
+    ~135 MB by shrinking before turning upright).
+  - `POST /api/photos/jpeg` (new, `routes/photos.py`): the phone sends a photo it can't open and gets
+    a JPEG back. `/api/ocr/bill` reads a JPEG of a HEIC. Sending a bill stores a HEIC as `.jpg`; if
+    it can't be converted the original is kept, so a bill is never lost over its photo.
+  - Web: `compressImage` asks the server for the JPEG when the browser can't open a photo; the bill
+    details preview switches to it, and with no signal shows "This photo can't be shown on this
+    phone, but it will be sent with the bill." instead of a black box.
+  - `requirements.txt`: `Pillow==13.0.0`, `pillow-heif==1.8.1`.
+- Native app: no change needed. Android decodes HEIC itself (preview and its JPEG shrinking work),
+  and the server converts whatever arrives. Not re-tested on the native app this session.
+- Checked: 10 new tests (174 pass); frontend lint + build; in the browser pane and on the emulator's
+  real gallery: HEIC bill → preview after ~2 s, read after ~4 s (16 items); JPEG bills unchanged;
+  offline HEIC → the message; a HEIC bill sent locally (S3 blanked) was stored as JPEG. All local
+  test bills, readings and photos deleted afterwards.
+- Chrome on the office emulator: first-run screen passed ("Use without an account", user's OK) and
+  its three ad-privacy settings turned off. The emulator gallery has test bills in
+  `/sdcard/Pictures/bill_*` (3 JPEG, 1 HEIC, 1 48-MP JPEG) for future gallery tests.
 
 ### 2026-10-16 — Live database moved from Render Postgres to Supabase (office)
 

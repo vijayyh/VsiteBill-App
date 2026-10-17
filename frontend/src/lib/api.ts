@@ -75,6 +75,17 @@ export async function fetchAuthedImageUrl(path: string): Promise<string> {
   return URL.createObjectURL(await res.blob())
 }
 
+/** POSTs a form and returns the binary reply (e.g. a converted photo) as a Blob. */
+export async function postForBlob(path: string, body: FormData): Promise<Blob> {
+  const token = getToken()
+  const headers = new Headers()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body, headers })
+  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`)
+  return res.blob()
+}
+
 /** Simple GET-and-cache-in-state hook. Refetches whenever `path` changes. */
 export function useApiGet<T>(path: string | null) {
   const [data, setData] = useState<T | null>(null)

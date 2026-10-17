@@ -1,10 +1,12 @@
+import io
 import uuid
 
 from flask import Blueprint, current_app, g, jsonify, request
 from sqlalchemy.orm import joinedload
+from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
-from .. import bills, drive, notify, ocr, storage
+from .. import bills, drive, notify, ocr, photos, storage
 from ..auth import login_required, require_role
 from ..extensions import db
 from ..models import BillChange, Delivery, OcrScan, Project
@@ -55,6 +57,19 @@ def create_delivery(project_id):
         return jsonify({"error": "A photo file is required"}), 400
 
     ext = secure_filename(photo.filename).rsplit(".", 1)[-1].lower() if "." in photo.filename else "jpg"
+    # A photo the office's browser couldn't show (a HEIC from a phone's gallery) is kept as a JPEG.
+    # If it can't be converted it's kept as it came: a bill is never lost over its photo.
+    head = photo.stream.read(16)
+    photo.stream.seek(0)
+    if not photos.is_viewable(head):
+        try:
+            jpeg = photos.to_jpeg(photo.stream.read())
+        except photos.PhotoError:
+            current_app.logger.warning("Kept a bill photo that couldn't be converted to JPEG")
+            photo.stream.seek(0)
+        else:
+            photo = FileStorage(stream=io.BytesIO(jpeg), filename="bill.jpg", content_type="image/jpeg")
+            ext = "jpg"
     filename = f"{uuid.uuid4().hex}.{ext}"
 
     storage.save_photo(photo, filename)

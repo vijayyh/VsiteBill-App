@@ -56,12 +56,17 @@ export function DeliveryDetails() {
     typed.current = { text: { vendor, invoiceNumber, billDate, poNumber }, rows, amounts }
   }, [vendor, invoiceNumber, billDate, poNumber, rows, amounts])
 
+  // Shows the shrunk photo once it's made: for a HEIC from the gallery (which Chrome can't show)
+  // that's the JPEG the server made of it. Until then, or with no signal, the original.
+  const shown = photo ?? file
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const previewFailed = previewUrl !== null && failedUrl === previewUrl
   useEffect(() => {
-    if (!file) return
-    const url = URL.createObjectURL(file)
+    if (!shown) return
+    const url = URL.createObjectURL(shown)
     setPreviewUrl(url)
     return () => URL.revokeObjectURL(url)
-  }, [file])
+  }, [shown])
 
   // Read the bill as soon as it's shown, and fill in only what hasn't been typed yet. With no
   // signal (or if reading isn't set up on the server) nothing changes: the details are typed in.
@@ -189,7 +194,21 @@ export function DeliveryDetails() {
         <div className="flex flex-col gap-3">
           <div className="glass rounded-card p-1.5">
             <div className="relative w-full aspect-[4/3] rounded-[14px] bg-camera-bg overflow-hidden">
-              {previewUrl && <img src={previewUrl} alt="The bill you photographed" className="w-full h-full object-cover" />}
+              {previewUrl && !previewFailed && (
+                <img
+                  src={previewUrl}
+                  alt="The bill you photographed"
+                  className="w-full h-full object-cover"
+                  onError={() => setFailedUrl(previewUrl)}
+                />
+              )}
+              {previewFailed && (
+                <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-[13px] leading-relaxed text-white/80">
+                  {photo
+                    ? "This photo can't be shown on this phone, but it will be sent with the bill."
+                    : 'Getting the photo ready…'}
+                </div>
+              )}
               <Link
                 to={`/supervisor/projects/${projectId}/upload`}
                 className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-black/45 ring-1 ring-white/30 backdrop-blur text-white text-[12px] font-bold px-3 py-1.5"

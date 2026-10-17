@@ -18,7 +18,7 @@ Nothing in the backend or the website changed for it.
 | beta (default) | SiteVerify Beta | `in.sustaniq.siteverify.beta` | Installs **next to** the current app, for side-by-side testing |
 | production (`APP_VARIANT=production`) | SiteVerify | `in.sustaniq.siteverify` | Installs **over** the current Android app (same id, same signing key, higher versionCode 100) |
 
-Version `2.3.0`, versionCode `103` (the browser-based app is at 1.0.1, code 2).
+Version `2.4.0`, versionCode `104` (the browser-based app is at 1.0.1, code 2).
 
 ## What's where
 
@@ -105,6 +105,7 @@ Don't set `EXPO_PUBLIC_API_BASE` for a release build: it must use the live API.
 | 2.1.0 | 101 | beta | Bill reading (OCR), items table, amounts, EDITED marks, History, date picker (2026-10-11). 50 MB, arm64 only (`SiteVerify-Beta-2.1.0-all-chips.apk`, 94 MB, has all three) |
 | 2.2.0 | 102 | beta | Payment card: approve matched bills into the payment sheet; admin payment-sheet setup (2026-10-13). arm64 only |
 | 2.3.0 | 103 | beta | Review screen in two tabs, Bill and Payment; a second tap on Approve is ignored (2026-10-13). arm64 only |
+| 2.4.0 | 104 | beta | Screens retry by themselves after "Failed to fetch" (no signal, or the server restarting) (2026-10-17). arm64 only |
 
 ## Signing
 

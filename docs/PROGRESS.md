@@ -7,7 +7,7 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 night (home PC, HEIC conversion removed)_
+_Last updated: 2026-10-17 night (home PC, APK 2.4.0 built)_
 
 **Home PC in sync and checked (2026-10-17 evening):** the office's six commits pulled and run on the
 home PC: tests, builds and the live deploy all fine, and bill reading checked in the running web
@@ -22,7 +22,8 @@ otherwise sent as they are. **So a HEIC picked from the gallery shows no preview
 on the website**; the fix on the phone is Camera settings → turn off HEIF / "High efficiency"
 photos (the camera button always gives JPEG). The phone app (native) is unaffected: it saves every
 photo as JPEG itself. Kept from the same work: screens retry by themselves after "Failed to fetch"
-(web live; native needs APK 2.4.0, not built yet). See the session log.
+(web live; native in APK **2.4.0**, built 2026-10-17, `native-app/SiteVerify-Beta-2.4.0.apk` on the
+home PC). See the session log.
 
 **Bill reading (OCR) fixed on three real bills (2026-10-17), pushed to `main`.** The user found the
 vendor filled with a tagline ("(We Supply the all type electrical Materials)" instead of SHREE
@@ -267,6 +268,19 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
 
+### 2026-10-17 (late night) — Full test, live and local; native 2.4.0 built (home)
+
+- **Live site** (demo roles): all supervisor screens (home, my bills, alerts, profile, project,
+  add bill) and office screens (home, projects, review queue, alerts, profile, gallery, a bill's
+  review) load with no errors. One earlier alerts-count CORS error was a blip during the deploy
+  (checked 5 times after: fine). Live bill reading: Sample 1 and 2 read exactly as printed (left 2
+  unattached readings in the live `ocr_scans`, no bills).
+- **Full bill flow, local** (no test bills on live): web (supervisor sends Sample 1 from the
+  gallery, read and filled in → office fills PO + ordered qty → Confirm match → Matched; history
+  sent/edited; alerts bill_new/bill_matched) and the same in the phone app on the emulator. Both
+  test bills and photos deleted.
+- **Native 2.4.0** (code 104): built, arm64, 50 MB, SiteVerify key (SHA-256 checked), live API.
+
 ### 2026-10-17 (night) — "Failed to fetch" retries; HEIC conversion removed (home)
 
 - **User report:** Home showed "Failed to fetch" on the live site, and a bill from the gallery
@@ -285,7 +299,6 @@ Newest first. Each entry: what changed, what was verified, anything left half-do
   (precache back to 550 KB), native tsc/lint. Retry: web Home recovered 4 s after the server came
   back; native (emulator) 17 s. Gallery JPEG on the local web app: preview shown, read correctly,
   sent and saved with its photo; that test bill and photo were then deleted.
-- **Left:** native APK 2.4.0 (for the retry) not built.
 
 ### 2026-10-17 (evening) — Home PC: office changes pulled and checked (home)
 

@@ -913,6 +913,16 @@ def _goods_table(page):
             }
         )
 
+    # A "charge line" whose amount is what the rows above it add up to is the table's total line,
+    # read as a row because a curved or tilted photo lines its amount up with the last item.
+    kept = []
+    for row in rows:
+        above = sum(r["amount"] or 0 for r in kept)
+        if row["quantity"] is None and row["amount"] is not None and kept and abs(row["amount"] - above) <= max(1.0, 0.001 * above):
+            continue
+        kept.append(row)
+    rows = kept
+
     # Below the table (its Total row, the GST lines) the rows keep the tilt of its last row.
     foot_slope = slopes[-1]
     totals = {}

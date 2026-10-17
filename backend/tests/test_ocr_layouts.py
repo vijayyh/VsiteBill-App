@@ -226,6 +226,27 @@ def test_charge_lines_without_a_quantity_are_rows_of_their_own(app):
     assert value(fields, "delivered") == 25  # a charge line has nothing to count
 
 
+def test_the_total_line_lined_up_with_the_last_item_is_not_a_row(app):
+    # On a curved photo the table's total amount can sit level with the last item's name, so it
+    # looked like a charge line of its own; its amount is what the rows above add up to.
+    fields = read(
+        app,
+        *E_INVOICE_HEADINGS,
+        cell(109, 330, "1 Cable Black Plastic", h=9),
+        cell(590, 331, "20.00 kg", h=10),
+        cell(663, 332, "150.00 kg", h=8),
+        cell(813, 333, "3,000.00", h=9),
+        cell(108, 345, "2 PUDDLE FLANGE 4\"", h=9),
+        cell(590, 345, "5.00 nos", h=9),
+        cell(650, 345, "2,700.00 nos", h=10),
+        cell(805, 346, "13,500.00", h=10),
+        cell(108, 362, "Loading and Unloading", h=9),
+        cell(805, 362, "16,500.00", h=10),
+        cell(108, 380, "TOTAL OF AMOUNT", h=9),
+    )
+    assert [r["description"] for r in rows(fields)] == ["Cable Black Plastic", 'PUDDLE FLANGE 4"']
+
+
 def test_a_long_table_is_read_to_its_last_row(app):
     table = []
     for i in range(30):

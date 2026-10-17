@@ -7,18 +7,22 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 (home PC, checked the office's changes)_
+_Last updated: 2026-10-17 night (home PC, HEIC conversion removed)_
 
 **Home PC in sync and checked (2026-10-17 evening):** the office's six commits pulled and run on the
 home PC: tests, builds and the live deploy all fine, and bill reading checked in the running web
 app and phone app with the two home sample bills (see the session log). APK 2.3.0 is still the
 latest; the office changes didn't touch the phone app.
 
-**Gallery uploads of HEIC photos fixed (2026-10-17), pushed to `main`.** A supervisor picking a bill from the phone's gallery got a black preview and no reading:
-the phone saves photos as HEIC, which Chrome can't show and Google's reader won't read (the camera
-path always gives JPEG). The server now converts such photos to JPEG (`backend/siteverify/photos.py`,
-new library `pillow-heif`); see the 2026-10-17 session log. Quick workaround on a phone until it's
-live: Camera settings → turn off HEIF / "High efficiency" photos.
+**HEIC photo conversion removed again (2026-10-17 night), at the user's request.** It had been
+added that day (server conversion, then also a decoder on the phone), but the user doesn't want
+the free server or phones doing photo conversion. Photo handling is back exactly as before
+7b77613: photos are shrunk to a 2000 px JPEG on the phone when the browser can open them,
+otherwise sent as they are. **So a HEIC picked from the gallery shows no preview and isn't read
+on the website**; the fix on the phone is Camera settings → turn off HEIF / "High efficiency"
+photos (the camera button always gives JPEG). The phone app (native) is unaffected: it saves every
+photo as JPEG itself. Kept from the same work: screens retry by themselves after "Failed to fetch"
+(web live; native needs APK 2.4.0, not built yet). See the session log.
 
 **Bill reading (OCR) fixed on three real bills (2026-10-17), pushed to `main`.** The user found the
 vendor filled with a tagline ("(We Supply the all type electrical Materials)" instead of SHREE
@@ -262,6 +266,26 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-17 (night) — "Failed to fetch" retries; HEIC conversion removed (home)
+
+- **User report:** Home showed "Failed to fetch" on the live site, and a bill from the gallery
+  waited and then said "This photo can't be shown on this phone". Live checks: the live site
+  loaded fine (so the phone couldn't reach the server at that moment); the live converter worked
+  (12 MP HEIC in 6 s, 50 MP in 14 s) with correct CORS. Probable cause: a very large gallery photo
+  being too much for the free (512 MB) server. Render's logs weren't checked.
+- **Pushed 5025236:** both apps' data loading retries by itself after a network failure or
+  502/503/504 (3 s, 6 s, 12 s… up to 30 s; web also when back online); a HEIC decoder on the
+  phone (heic-to) as a fallback; a 64 MP limit on server conversion. CI green, live website had it.
+- **Then, at the user's request ("no HEICs at all, as before"):** all photo conversion removed:
+  `photos.py`, `routes/photos.py` (`/api/photos/jpeg`), `pillow-heif`, `heic-to`, their tests,
+  and the preview/upload/OCR changes, restored to their state before 7b77613. The office's
+  bill-reading fixes (4a15471) and the retry above are kept.
+- **Verified:** 175 backend tests (the 12 photo tests went with the code), web lint/tsc/build
+  (precache back to 550 KB), native tsc/lint. Retry: web Home recovered 4 s after the server came
+  back; native (emulator) 17 s. Gallery JPEG on the local web app: preview shown, read correctly,
+  sent and saved with its photo; that test bill and photo were then deleted.
+- **Left:** native APK 2.4.0 (for the retry) not built.
 
 ### 2026-10-17 (evening) — Home PC: office changes pulled and checked (home)
 

@@ -75,18 +75,6 @@ export async function fetchAuthedImageUrl(path: string): Promise<string> {
   return URL.createObjectURL(await res.blob())
 }
 
-/** POSTs a form and returns the binary reply (e.g. a converted photo) as a Blob. */
-export async function postForBlob(path: string, body: FormData, signal?: AbortSignal): Promise<Blob> {
-  const token = getToken()
-  const headers = new Headers()
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-
-  const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body, headers, signal })
-  if (!res.ok) throw new ApiError(res.status, `Request failed (${res.status})`)
-  return res.blob()
-}
-
-
 /**
  * A failure worth trying again by itself: no connection, or the server restarting or waking up
  * (Render answers 502/503/504 meanwhile, which a browser reports as "Failed to fetch").

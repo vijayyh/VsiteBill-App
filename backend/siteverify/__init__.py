@@ -26,7 +26,6 @@ def create_app(test_config: dict | None = None) -> Flask:
     from .routes.notifications import bp as notifications_bp
     from .routes.ocr import bp as ocr_bp
     from .routes.payments import bp as payments_bp
-    from .routes.photos import bp as photos_bp
     from .routes.office import bp as office_bp
     from .routes.projects import bp as projects_bp
 
@@ -38,7 +37,6 @@ def create_app(test_config: dict | None = None) -> Flask:
     app.register_blueprint(admin_bp)
     app.register_blueprint(ocr_bp)
     app.register_blueprint(payments_bp)
-    app.register_blueprint(photos_bp)
 
     @app.get("/uploads/<path:filename>")
     @login_required

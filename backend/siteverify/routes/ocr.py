@@ -1,6 +1,6 @@
 from flask import Blueprint, current_app, g, jsonify, request
 
-from .. import ocr, photos
+from .. import ocr
 from ..auth import login_required
 from ..extensions import db
 from ..models import OcrScan
@@ -30,10 +30,7 @@ def read_bill():
         return jsonify({"error": "A photo file is required"}), 400
 
     try:
-        # The reader doesn't take HEIC (a gallery photo from many phones): it reads a JPEG of it.
-        reading = ocr.read_bill(photos.viewable(data))
-    except photos.PhotoError:
-        return jsonify({"error": "Couldn't open that photo. Type the details in."}), 415
+        reading = ocr.read_bill(data)
     except ocr.OcrError:
         current_app.logger.exception("Reading a bill photo failed")
         return jsonify({"error": "Couldn't read the bill. Type the details in."}), 502

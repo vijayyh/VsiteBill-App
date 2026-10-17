@@ -83,25 +83,51 @@ export function authedImageSource(path: string) {
  * view (the web remounts screens on every visit; native keeps them alive), and offers a
  * pull-to-refresh state, since there's no browser reload button in an app.
  */
+/**
+ * A failure worth trying again by itself: no connection, or the server restarting or waking up
+ * (Render answers 502/503/504 meanwhile, which a browser reports as "Failed to fetch").
+ */
+export function isPassingFailure(err: unknown): boolean {
+  return !(err instanceof ApiError) || [502, 503, 504].includes(err.status)
+}
+
+/** Waits before the next automatic retry: 3 s, 6 s, 12 s… up to 30 s. */
+export function retryDelay(attempt: number): number {
+  return Math.min(30_000, 3_000 * 2 ** attempt)
+}
+
+// Same as the web's hook: a fetch that fails for want of the server is tried again by itself.
 export function useApiGet<T>(path: string | null) {
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(path !== null)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const latest = useRef(0)
+  const attempt = useRef(0)
+  const retry = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [retries, setRetries] = useState(0)
 
   const load = useCallback(
     async (mode: 'initial' | 'refresh' | 'silent') => {
       if (path === null) return
       const call = ++latest.current
+      clearTimeout(retry.current)
       if (mode === 'initial') setLoading(true)
       if (mode === 'refresh') setRefreshing(true)
-      setError(null)
       try {
         const result = await api.get<T>(path)
-        if (call === latest.current) setData(result)
+        if (call === latest.current) {
+          attempt.current = 0
+          setData(result)
+          setError(null)
+        }
       } catch (err) {
-        if (call === latest.current) setError(err instanceof Error ? err.message : 'Something went wrong')
+        if (call === latest.current) {
+          setError(err instanceof Error ? err.message : 'Something went wrong')
+          if (isPassingFailure(err)) {
+            retry.current = setTimeout(() => setRetries((n) => n + 1), retryDelay(attempt.current++))
+          }
+        }
       } finally {
         if (call === latest.current) {
           setLoading(false)
@@ -111,6 +137,13 @@ export function useApiGet<T>(path: string | null) {
     },
     [path],
   )
+
+  useEffect(() => () => clearTimeout(retry.current), [])
+  useEffect(() => {
+    // A retry after a failed fetch (see the catch above): reload quietly, keeping what's shown.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (retries > 0) void load('silent')
+  }, [retries, load])
 
   useEffect(() => {
     // Showing "loading" as a fetch starts is the point here (the web's hook does the same).

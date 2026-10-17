@@ -21,6 +21,9 @@ export default defineConfig({
       // with no signal at all.
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // The HEIC decoder (heic-to, ~3.2 MB, loaded only for a HEIC from the gallery) is above
+        // the 2 MB default, and has to be cached too so gallery photos show with no signal.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // iPhone launch images are only fetched by iOS when the app is added to the home screen.
         globIgnores: ['**/splash/**'],
         navigateFallback: '/index.html',

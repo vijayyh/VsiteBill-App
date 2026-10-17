@@ -128,3 +128,24 @@ def test_reading_a_photo_that_cant_be_opened_says_so(client, login, vision_sees)
     res = read(client, login("supervisor"), b"not a photo at all", "IMG_0042.HEIC")
     assert res.status_code == 415
     assert vision_sees == []
+
+
+def test_a_photo_too_big_for_the_server_is_refused_without_decoding_it(client, login, monkeypatch):
+    # A 200-megapixel photo would need more memory than the whole server; the limit is checked from
+    # the file's header before anything is decoded. (Lowered here so the test photo stays small.)
+    monkeypatch.setattr(photos, "MAX_PIXELS", 1000)
+    res = client.post(
+        "/api/photos/jpeg",
+        data={"photo": (io.BytesIO(heic_photo(64, 64)), "huge.heic")},
+        headers=login("supervisor"),
+        content_type="multipart/form-data",
+    )
+    assert res.status_code == 415
+
+
+def test_a_bill_with_a_photo_too_big_to_convert_is_still_sent(app, client, login, monkeypatch):
+    monkeypatch.setattr(photos, "MAX_PIXELS", 1000)
+    original = heic_photo(64, 64)
+    res = send_bill(client, login("supervisor"), original, "huge.heic")
+    assert res.status_code == 201
+    assert stored(app, res.get_json()["delivery"]["photoUrl"]) == original

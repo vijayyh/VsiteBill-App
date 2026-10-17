@@ -7,7 +7,12 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 (office PC, gallery photo fix)_
+_Last updated: 2026-10-17 (home PC, checked the office's changes)_
+
+**Home PC in sync and checked (2026-10-17 evening):** the office's six commits pulled and run on the
+home PC: tests, builds and the live deploy all fine, and bill reading checked in the running web
+app and phone app with the two home sample bills (see the session log). APK 2.3.0 is still the
+latest; the office changes didn't touch the phone app.
 
 **Gallery uploads of HEIC photos fixed (2026-10-17), pushed to `main`.** A supervisor picking a bill from the phone's gallery got a black preview and no reading:
 the phone saves photos as HEIC, which Chrome can't show and Google's reader won't read (the camera
@@ -18,9 +23,9 @@ live: Camera settings → turn off HEIF / "High efficiency" photos.
 **Bill reading (OCR) fixed on three real bills (2026-10-17), pushed to `main`.** The user found the
 vendor filled with a tagline ("(We Supply the all type electrical Materials)" instead of SHREE
 SIDDHI VINAYAK ELECTRICAL). The parser (`backend/siteverify/ocr.py`) was fixed for that and for
-everything else wrong on the same bills; see the 2026-10-17 OCR session log. **Next: check it in
-the preview/emulator with a real bill photo** (unit tests and the three saved readings pass, the
-form itself wasn't re-checked after these parser changes), then on the live site after the deploy.
+everything else wrong on the same bills; see the 2026-10-17 OCR session log. **Checked in the running apps on 2026-10-17 (home)** with the two older sample bills (the three new
+bills' photos are only on the office PC). Still to do: upload one of the new bills on the live site
+from a phone.
 
 **The live database moved to Supabase (2026-10-16), free.** Render's free Postgres expires on
 2026-10-19, so all data was copied to a new free Supabase project **VsiteBilll-DB** (Singapore,
@@ -257,6 +262,23 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-17 (evening) — Home PC: office changes pulled and checked (home)
+
+- **Pulled** the office's six commits (bill reading on real bills, HEIC gallery photos, the live
+  database on Supabase, docs). Installed the new Python library (`pillow-heif`); no migrations.
+- **Checks:** 185 backend tests, web lint and build, native tsc and lint all pass. GitHub CI green
+  for 7b77613 and 4a15471. The live site runs them (the website bundle calls `/api/photos/jpeg`;
+  the API answers it with 401, not 404).
+- **Bill reading in the running apps** (local backend, Google Vision): web, picking a photo as from
+  the gallery: Sample 2 (Buildingshop.in, IN-716, 04/08/2025, PO 2025/1, 1 item, ₹1,750.94 + IGST
+  ₹315.18 = ₹2,066.12) and Sample 1 (ABS NAVDEEP CONCRETE, MRL/26-27/158, 31/08/2026, 3 items,
+  CGST/SGST ₹54,263.13 each, total ₹7,11,450; PO blank as on the bill) are both right. Phone app
+  (emulator, dev build, supervisor, photo from the system gallery): Sample 1 the same.
+- **Phone app:** no native changes since 2.3.0 (it re-saves photos as JPEG on the phone, and the
+  server converts HEIC anyway), so `SiteVerify-Beta-2.3.0.apk` still matches `main`.
+- **Cleaned up:** no bills sent; the 3 unattached bill readings deleted from the local database; the
+  sample photo removed from the emulator.
 
 ### 2026-10-17 — Bill reading: vendor, bill no., date, items and amounts on real bills (office)
 

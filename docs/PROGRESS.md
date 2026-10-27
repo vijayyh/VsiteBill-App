@@ -7,7 +7,16 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-17 late night (home PC, bill-reading fixes)_
+_Last updated: 2026-10-27 (new laptop, bill reading back on, free-tier limit)_
+
+**2026-10-27 (new laptop):** bill reading had stopped on live because Google turned billing off on
+the Vision project (`BILLING_DISABLED`: India tax info missing, UPI payment method not authorised).
+The user added the tax info (GSTIN, accepted) and authorised UPI AutoPay; Vision works again. The
+₹500 budget is **alerts only** (Google has no spend cap or per-day quota for Vision), so the server
+now stops reading bills after **990 readings a month** (`OCR_MONTHLY_LIMIT`), staying inside the
+free 1,000. A read bill with no printed total now gets its total worked out (taxable + GST, marked
+"check"). Server-only: no website or APK update needed. A third machine (new laptop) is set up:
+web app, API and the native dev build on an emulator; see the session log.
 
 **State at the end of 2026-10-17 (home PC):** `main` is pushed and live (website and API checked
 after the deploy), and everything passes: 179 backend tests, web lint/build, native tsc/lint. The
@@ -182,7 +191,10 @@ production photo bucket; blank them in the environment when creating test bills.
    free). Render free: 750 instance hours/month shared by all free web services in the workspace,
    5 GB bandwidth, 500 build minutes, 512 MB RAM (ran out once on 2026-10-13); no card on file, so
    no charges. Vision: first 1,000 reads/month free, then ₹143.98 per 1,000; ₹500/month budget
-   with a spend cap.
+   that only sends alerts (Vision has no spend cap or per-day quota). The real limit is the app's:
+   990 readings a month (`OCR_MONTHLY_LIMIT`, counted by Google's Pacific-time month), then the
+   form is typed in. Local and live servers share the same Vision project but count separately,
+   so keep local test readings few.
 
 1. **Security: demo admin password is public.** The GitHub repo is public and
    `backend/siteverify/seed.py` contains the demo accounts' phone numbers and password. Production
@@ -284,6 +296,28 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-27 — New laptop; Vision billing fixed; monthly reading limit; worked-out total
+
+- **New laptop set up** (`C:\Users\Vedx6\OneDrive\Desktop\SiteVerify`): Python 3.13 venv (3.14 not
+  installed; all tests pass on 3.13), Node 22, Android SDK installed from the command line, emulator
+  `SiteVerify_API35`, native dev build made in `C:\sv\native-app` (outside OneDrive). No signing key
+  on this laptop, so no release APK here. The **Salad** app (`Salad.Bowl.Service`) holds
+  `127.0.0.1:5000` on this laptop: quit it before running the backend, or the web app and emulator
+  reach Salad instead of the API.
+- **Vision billing:** live reading returned 502; Google said `BILLING_DISABLED`. Billing account
+  (Sustaniq Civilcon LLP, organisation verified 23 Oct) had no India tax info and its UPI QR payment
+  method needed authorisation. User added the GSTIN (accepted) and authorised UPI AutoPay (₹15,000 is
+  only the mandate's ceiling; nothing is charged within the free 1,000). Vision answers again.
+- **Monthly limit** (`routes/ocr.py`, `config.py`): readings stop at `OCR_MONTHLY_LIMIT` (990)
+  kept readings per month; `/api/ocr/status` then says off and `/api/ocr/bill` answers 503, so both
+  apps fall back to typing (no app change). 3 tests.
+- **Worked-out total** (`ocr.py` `_amounts`): a bill with a taxable amount but no total read now
+  gets total = taxable + GST read (GST may be none), always marked "check". 3 tests.
+- **Verified:** 185 backend tests; web lint/build. On the local web app and the native dev build:
+  limit 0 → empty form to type in; normal limit → test bill read in full, total 2000 · CHECK. Test
+  readings and the test photo deleted; no bills sent.
+- `PROGRESS.md` used to say the ₹500 budget had a spend cap: it is alerts only (corrected above).
 
 ### 2026-10-17 (late night) — Bill reading: crash on long bills, extra total row (home)
 

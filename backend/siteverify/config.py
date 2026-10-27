@@ -65,5 +65,8 @@ class Config:
     OCR_PROVIDER = os.environ.get("OCR_PROVIDER", "google")
     GOOGLE_VISION_API_KEY = os.environ.get("GOOGLE_VISION_API_KEY", "")
     OCR_TIMEOUT_SECONDS = float(os.environ.get("OCR_TIMEOUT_SECONDS", "20"))
+    # Readings allowed per month, to stay inside Vision's free 1,000 a month (a little under, as a
+    # margin). Google has no per-month quota for this, and a billing budget only sends alerts.
+    OCR_MONTHLY_LIMIT = int(os.environ.get("OCR_MONTHLY_LIMIT", "990"))
     # Names on our own side of a bill (the buyer), so they're never taken for the vendor.
     OCR_BUYER_NAMES = os.environ.get("OCR_BUYER_NAMES", "KH Group,Sustaniq")

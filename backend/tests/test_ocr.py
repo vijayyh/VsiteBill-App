@@ -1,5 +1,6 @@
 import io
 import math
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -7,6 +8,7 @@ from siteverify import ocr
 from siteverify.extensions import db
 from siteverify.models import OcrScan
 from siteverify.ocr import Line, Page, Word, page_from_vision, parse_page
+from siteverify.routes import ocr as ocr_routes
 
 from test_deliveries import upload_bill
 
@@ -268,6 +270,47 @@ def test_amounts_that_dont_add_up_keep_their_own_confidence(app):
     assert fields["taxableAmount"]["confidence"] < ocr.LOW_CONFIDENCE
 
 
+def gi_wire_bill(*amount_cells):
+    return page(
+        cell(40, 30, "Balaji Hardware & Sons", h=24),
+        cell(40, 100, "Material: GI Wire 18 gauge"),
+        cell(40, 120, "Quantity: 25 Kgs"),
+        *amount_cells,
+    )
+
+
+def test_a_bill_without_gst_or_a_grand_total_gets_its_total_worked_out(app):
+    bill = gi_wire_bill(cell(300, 200, "Taxable Value"), cell(500, 200, "2,000.00"))
+    with app.app_context():
+        fields = parse_page(bill)
+    assert value(fields, "taxableAmount") == 2000
+    assert value(fields, "totalAmount") == 2000
+    # Worked out, not read: the supervisor is asked to check it against the bill.
+    assert fields["totalAmount"]["confidence"] < ocr.LOW_CONFIDENCE
+
+
+def test_gst_without_a_grand_total_is_added_to_the_taxable_amount(app):
+    bill = gi_wire_bill(
+        cell(300, 200, "Taxable Value"),
+        cell(500, 200, "2,500.00"),
+        cell(300, 220, "CGST @ 9%"),
+        cell(500, 220, "225.00"),
+        cell(300, 240, "SGST @ 9%"),
+        cell(500, 240, "225.00"),
+    )
+    with app.app_context():
+        fields = parse_page(bill)
+    assert value(fields, "cgst") == 225
+    assert value(fields, "totalAmount") == 2950
+    assert fields["totalAmount"]["confidence"] < ocr.LOW_CONFIDENCE
+
+
+def test_a_bill_with_no_amounts_still_has_no_total(app):
+    with app.app_context():
+        fields = parse_page(gi_wire_bill())
+    assert fields["totalAmount"] is None
+
+
 def test_a_buyers_order_number_is_the_po_when_no_po_box_is_printed(app):
     bill = page(cell(40, 30, "Buyer's Order No. 4471"), cell(40, 50, "Order Date: 02/10/2026"))
     with app.app_context():
@@ -490,3 +533,47 @@ def test_someone_elses_or_a_used_reading_is_not_linked(app, client, login, visio
 
 def test_a_bill_sent_without_a_reading_still_works(client, login):
     assert upload_bill(client, login("supervisor"), ocrScanId="not-a-number").status_code == 201
+
+
+# ── Staying inside Vision's free readings each month ────────────────────────────────────────────
+
+
+def add_scans(app, count, created_at=None):
+    with app.app_context():
+        for _ in range(count):
+            scan = OcrScan(user_id=1, provider="google")
+            if created_at:
+                scan.created_at = created_at
+            db.session.add(scan)
+        db.session.commit()
+
+
+def test_reading_stops_at_the_monthly_limit(app, client, login, vision_on):
+    app.config["OCR_MONTHLY_LIMIT"] = 3
+    headers = login("supervisor")
+    add_scans(app, 2)
+    assert read(client, headers).status_code == 200
+
+    res = read(client, headers)
+    assert res.status_code == 503
+    assert "Type the details in" in res.get_json()["error"]
+    assert client.get("/api/ocr/status", headers=headers).get_json() == {"enabled": False}
+    with app.app_context():
+        assert db.session.query(OcrScan).count() == 3
+
+
+def test_readings_from_last_month_dont_count(app, client, login, vision_on):
+    app.config["OCR_MONTHLY_LIMIT"] = 3
+    add_scans(app, 5, created_at=datetime.now(timezone.utc) - timedelta(days=40))
+    assert read(client, login("supervisor")).status_code == 200
+
+
+def test_the_month_turns_over_on_googles_pacific_time(app, client, login, vision_on, monkeypatch):
+    # 1 Nov 07:30 UTC is still 31 Oct in California, so October's readings still count.
+    app.config["OCR_MONTHLY_LIMIT"] = 1
+    add_scans(app, 1, created_at=datetime(2026, 10, 31, 12))
+    monkeypatch.setattr(ocr_routes, "utcnow", lambda: datetime(2026, 11, 1, 7, 30, tzinfo=timezone.utc))
+    assert read(client, login("supervisor")).status_code == 503
+
+    monkeypatch.setattr(ocr_routes, "utcnow", lambda: datetime(2026, 11, 1, 8, 30, tzinfo=timezone.utc))
+    assert read(client, login("supervisor")).status_code == 200

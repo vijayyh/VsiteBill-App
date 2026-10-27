@@ -1138,10 +1138,13 @@ def _amounts(page, table, rows):
             found["totalAmount"] = _field(*table.totals["line_total"])
         elif table and "line_total" in {c.kind for c in table.columns} and all(r["line_total"] is not None for r in rows):
             found["totalAmount"] = _field(round(sum(r["line_total"] for r in rows), 2), confidence)
-        elif found["taxableAmount"] and taxes:
-            taxed = found["taxableAmount"]["value"] + sum(t["value"] for t in taxes)
-            found["totalAmount"] = _field(round(taxed, 2), confidence * 0.9)
-            worked_out = True
+    if not found["totalAmount"] and found["taxableAmount"]:
+        # No final total printed (or none read): it is the taxable amount plus whatever GST was read,
+        # so the total isn't left empty. Worked out, not read, so it always asks to be checked.
+        taxed = found["taxableAmount"]["value"] + sum(t["value"] for t in taxes)
+        confidence = min([found["taxableAmount"]["confidence"]] + [t["confidence"] for t in taxes]) * 0.9
+        found["totalAmount"] = _field(round(taxed, 2), min(confidence, LOW_CONFIDENCE - 0.01))
+        worked_out = True
 
     if found["taxableAmount"] and found["totalAmount"] and taxes and not worked_out:
         taxed = found["taxableAmount"]["value"] + sum(t["value"] for t in taxes)

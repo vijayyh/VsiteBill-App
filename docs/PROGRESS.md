@@ -7,7 +7,14 @@ The running record of what's been done and what's next, so work can continue on 
 
 ## Where we left off
 
-_Last updated: 2026-10-27 (new laptop, bill reading back on, free-tier limit)_
+_Last updated: 2026-10-29 (new laptop: multi-page bills, Android back fixes)_
+
+**2026-10-29 (new laptop):** a bill can now have **several pages** (up to 10), read as one bill,
+and **Android back** goes to the previous screen in both apps. Website and API: live once Render
+deploys (database migration fe0b20c7c18e runs on start). **Phone app: needs a new APK (2.5.0)**
+for multi-page and its back fix; 2.4.0 keeps working (one page per bill). This laptop has no
+signing key, so build it on the home PC. Not yet checked: a real phone's camera, real Drive upload
+of extra pages, the migration on a live Postgres (checked as generated SQL only). See session log.
 
 **2026-10-27 (new laptop):** bill reading had stopped on live because Google turned billing off on
 the Vision project (`BILLING_DISABLED`: India tax info missing, UPI payment method not authorised).
@@ -296,6 +303,35 @@ From the "SiteVerify — Complete Technical Guide & Production Roadmap" doc
 ## Session log
 
 Newest first. Each entry: what changed, what was verified, anything left half-done.
+
+### 2026-10-29 — Multi-page bills; Android back navigation (new laptop)
+
+- **Multi-page bills.** Backend: page 1 stays in `deliveries.photo_filename` (thumbnails, Drive,
+  payment sheet unchanged), pages 2+ in the new `more_photo_filenames` JSON column; the API adds
+  `photoUrls`. `POST …/deliveries` and `POST /api/ocr/bill` take one `photo` part per page, in
+  order (one part = as before; max 10). Reading: all pages in one Vision request (batched under
+  its 10 MB limit), each page parsed on its own, then combined by `ocr.parse_pages` (header from the
+  first page that has it, rows in page order, labelled totals from the last page that prints them,
+  else worked out from all pages and marked check). Pages that fail come back as `failedPages`.
+  `ocr_scans.pages` counts pages read, and the 990-a-month limit counts pages. Drive saves extra
+  pages next to the bill as `…-p2`, `…-p3`. Web and native: page strip on the bill form (Add page:
+  camera or gallery, numbered, ×), re-read 1.2 s after a change keeping what was typed; the offline
+  queue stores the extra pages (web IndexedDB `morePages`; native files + `details` JSON, no schema
+  change); photo viewers page through ("Page 2 of 3"); "N pages" on thumbnails.
+- **Android back.** Web (browser app / TWA): back arrows were links that pushed a new screen, so
+  Android back went into the screen just left; now `useGoBack` (history back, or replace the fixed
+  parent when opened directly). Photo viewer closes on back (its own history entry). The bill form
+  replaces the Add a bill sheet and the confirmation replaces the form, so back never reopens a sent
+  form. Native: "Back to project" after a bill started from the Add bill tab put the project on top
+  of the sheet (dismissTo can't find it); now the bill's screens are dismissed first. Same on web
+  (`fromProject` state).
+- **Verified:** 202 backend tests (17 new in `test_bill_pages.py`), web lint/build, native tsc/lint.
+  Real Vision reads of 1-, 2- and 3-page test bills in both apps (every value checked), page removal,
+  a failed page, offline queue → sent once, office review. Android back and gesture on the emulator
+  in Chrome and the native app. Test bills, readings and the 11 test photos in the live bucket were
+  deleted. Not tested: real phone/camera, real Drive upload, live Postgres.
+- **Gotcha (new laptop):** this laptop's `backend/.env` has the S3 keys, so local test photos go to
+  the **live** bucket; delete them after testing.
 
 ### 2026-10-27 — New laptop; Vision billing fixed; monthly reading limit; worked-out total
 

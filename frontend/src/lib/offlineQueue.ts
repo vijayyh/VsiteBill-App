@@ -32,10 +32,18 @@ const OPTIONAL_DETAILS = [
   'totalAmount',
 ] as const
 
-/** The form a bill is sent as, whether straight away or later from the queue. */
-export function billForm(photo: Blob, filename: string, details: QueuedUploadDetails) {
+/** A bill's pages after the first (the first is the queued item's own blob and filename). */
+export interface MorePage {
+  blob: Blob
+  filename: string
+}
+
+/** The form a bill is sent as, whether straight away or later from the queue: one "photo" part
+ * per page, in page order. */
+export function billForm(photo: Blob, filename: string, details: QueuedUploadDetails, morePages: MorePage[] = []) {
   const form = new FormData()
   form.append('photo', photo, filename)
+  for (const page of morePages) form.append('photo', page.blob, page.filename)
   form.append('vendor', details.vendor)
   form.append('item', details.item)
   form.append('delivered', details.delivered)
@@ -53,6 +61,8 @@ export interface QueuedUpload extends QueuedUploadDetails {
   projectId: string
   blob: Blob
   filename: string
+  /** Pages 2, 3, … of the bill. Missing on bills queued before bills had pages. */
+  morePages?: MorePage[]
   createdAt: string
 }
 
@@ -97,6 +107,7 @@ export async function queueUpload(
   blob: Blob,
   filename: string,
   details: QueuedUploadDetails,
+  morePages: MorePage[] = [],
 ): Promise<QueuedUpload> {
   const db = await getDb()
   const record: QueuedUpload = {
@@ -104,6 +115,7 @@ export async function queueUpload(
     projectId,
     blob,
     filename,
+    morePages,
     createdAt: new Date().toISOString(),
     ...details,
   }
@@ -140,7 +152,10 @@ export async function flushQueue(): Promise<{ uploaded: number; remaining: numbe
   try {
     for (const item of await listQueued()) {
       try {
-        await api.post(`/api/projects/${item.projectId}/deliveries`, billForm(item.blob, item.filename, item))
+        await api.post(
+          `/api/projects/${item.projectId}/deliveries`,
+          billForm(item.blob, item.filename, item, item.morePages),
+        )
         await removeQueued(item.id)
         uploaded += 1
       } catch (err) {

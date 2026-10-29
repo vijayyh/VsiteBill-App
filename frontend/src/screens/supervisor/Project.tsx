@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
-import { PhotoViewer } from '../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../components/PhotoViewer'
 import { ProjectHero } from '../../components/ProjectHero'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, FilterTabs, btnPrimary, type TabOption } from '../../components/ui'
 import { IconBill, IconCamera, IconCheck, IconClock } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
+import { billPages } from '../../lib/bill'
 import { subscribeQueue, useQueuedUploads, type QueuedUpload } from '../../lib/offlineQueue'
 import type { Delivery, Project } from '../../lib/types'
 
@@ -47,8 +48,9 @@ function WaitingCard({ item }: { item: QueuedUpload }) {
         Waiting for signal · sends by itself
       </div>
       <div className="flex gap-3">
-        <div className={thumbClass}>
+        <div className={`${thumbClass} relative`}>
           <QueuedPhotoThumb blob={item.blob} />
+          <PagesBadge count={1 + (item.morePages?.length ?? 0)} />
         </div>
         <div className="flex-grow min-w-0">
           <BillSummary
@@ -65,16 +67,18 @@ function WaitingCard({ item }: { item: QueuedUpload }) {
   )
 }
 
-function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: (src: string) => void }) {
+function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: (pages: string[]) => void }) {
+  const pages = billPages(delivery)
   return (
     <div className="glass rounded-card flex gap-3 p-3">
       <button
         type="button"
-        onClick={() => delivery.photoUrl && onViewPhoto(delivery.photoUrl)}
+        onClick={() => pages.length > 0 && onViewPhoto(pages)}
         aria-label="View bill photo"
-        className={thumbClass}
+        className={`${thumbClass} relative`}
       >
         {delivery.photoUrl && <AuthImage src={delivery.photoUrl} className="w-full h-full object-cover" />}
+        <PagesBadge count={pages.length} />
       </button>
       <div className="flex-grow min-w-0">
         <BillSummary
@@ -104,7 +108,7 @@ export function SupervisorProject() {
   } = useApiGet<{ deliveries: Delivery[] }>(`/api/projects/${projectId}/deliveries?uploadedByMe=1`)
   const queued = useQueuedUploads(projectId)
   const [tab, setTab] = useState<Tab>('ALL')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
 
   // A queue flush (item removed after a successful background upload) means
   // there's a new server-side bill to pick up — re-fetch so it moves from
@@ -144,7 +148,11 @@ export function SupervisorProject() {
       />
 
       <div className="px-5 pt-4">
-        <Link to={`/supervisor/projects/${projectId}/upload`} className={`${btnPrimary} w-full py-4 text-[15px]`}>
+        <Link
+          to={`/supervisor/projects/${projectId}/upload`}
+          state={{ fromProject: true }}
+          className={`${btnPrimary} w-full py-4 text-[15px]`}
+        >
           <IconCamera size={21} stroke="#FFFFFF" />
           Add a bill
         </Link>

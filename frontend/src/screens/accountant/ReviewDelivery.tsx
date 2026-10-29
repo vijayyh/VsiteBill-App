@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillHistory } from '../../components/BillHistory'
 import { PaymentCard } from '../../components/PaymentCard'
@@ -13,6 +13,7 @@ import { api, ApiError, useApiGet } from '../../lib/api'
 import {
   AMOUNT_FIELDS,
   amountsFromDelivery,
+  billPages,
   editedFields,
   emptyAmounts,
   emptyRow,
@@ -27,6 +28,7 @@ import {
   type Mark,
 } from '../../lib/bill'
 import { formatDateTime } from '../../lib/format'
+import { useGoBack } from '../../lib/goBack'
 import type { BillHistoryEntry, Delivery, Project } from '../../lib/types'
 
 type Tab = 'bill' | 'payment'
@@ -51,7 +53,8 @@ export function ReviewDelivery() {
   const { data: historyData, refetch: refetchHistory } = useApiGet<{ changes: BillHistoryEntry[] }>(
     `/api/deliveries/${deliveryId}/changes`,
   )
-  const navigate = useNavigate()
+  // After saving, back to wherever the bill was opened from (not a new copy of that screen).
+  const goBack = useGoBack(backTo)
 
   const [vendor, setVendor] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
@@ -153,7 +156,7 @@ export function ReviewDelivery() {
         note,
         status,
       })
-      navigate(backTo)
+      goBack()
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : 'Could not save. Check your connection and try again.')
       setSaving(false)
@@ -217,7 +220,7 @@ export function ReviewDelivery() {
             )}
             {delivery.photoUrl && (
               <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/45 ring-1 ring-white/30 backdrop-blur text-white text-[12px] font-bold px-3 py-1.5">
-                Tap to enlarge
+                {billPages(delivery).length > 1 ? `${billPages(delivery).length} pages · tap to see them` : 'Tap to enlarge'}
               </span>
             )}
           </button>
@@ -404,7 +407,7 @@ export function ReviewDelivery() {
         </div>
       </div>
 
-      {viewerOpen && <PhotoViewer src={delivery.photoUrl} onClose={() => setViewerOpen(false)} />}
+      {viewerOpen && <PhotoViewer src={billPages(delivery)} onClose={() => setViewerOpen(false)} />}
     </div>
   )
 }

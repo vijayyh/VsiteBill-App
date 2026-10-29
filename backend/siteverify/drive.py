@@ -328,6 +328,20 @@ def upload_delivery_photo(project: Project, delivery: Delivery) -> Delivery:
         .execute()
     )
 
+    # The bill's later pages go next to it as "…-p2", "…-p3"; the bill links to page 1 as before.
+    stem, _, _ = filename.rpartition(".")
+    for page, name in enumerate(delivery.more_photo_filenames or [], start=2):
+        page_ext = name.rsplit(".", 1)[-1].lower() if "." in name else "jpg"
+        page_media = MediaIoBaseUpload(
+            io.BytesIO(storage.read_photo(name)), mimetype=f"image/{page_ext if page_ext != 'jpg' else 'jpeg'}"
+        )
+        service.files().create(
+            body={"name": f"{stem}-p{page}.{page_ext}", "parents": [folder_id]},
+            media_body=page_media,
+            fields="id",
+            supportsAllDrives=True,
+        ).execute()
+
     project.drive_next_sequence = sequence + 1
     delivery.drive_file_id = file["id"]
     delivery.drive_web_view_link = file.get("webViewLink")

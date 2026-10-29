@@ -5,10 +5,11 @@ import { AdminShell } from '../../../components/AdminShell'
 import { AuthImage } from '../../../components/AuthImage'
 import { BillSummary, StatusBadge } from '../../../components/bills'
 import { IconBill } from '../../../components/icons'
-import { PhotoViewer } from '../../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../../components/PhotoViewer'
 import { T } from '../../../components/T'
 import { EmptyState, FilterTabs, SearchField, Tap, type TabOption } from '../../../components/ui'
 import { useApiGet } from '../../../lib/api'
+import { billPages } from '../../../lib/bill'
 import { STATUS_META } from '../../../lib/status'
 import { colors, glass, radii, ring } from '../../../lib/theme'
 import type { AdminDelivery, DeliveryStatus } from '../../../lib/types'
@@ -18,7 +19,7 @@ type Filter = 'ALL' | DeliveryStatus
 
 export default function AdminDeliveries() {
   const { data, loading, refresh, refreshing } = useApiGet<{ deliveries: AdminDelivery[] }>('/api/admin/deliveries')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
 
@@ -55,8 +56,9 @@ export default function AdminDeliveries() {
         {!loading && visible.length === 0 ? <EmptyState icon={IconBill} title={q ? 'No bills match your search' : 'No bills here yet'} /> : null}
         {visible.map((bill) => (
           <View key={bill.id} style={[glass, styles.card]}>
-            <Tap onPress={() => bill.photoUrl && setViewerSrc(bill.photoUrl)} accessibilityLabel="View bill photo" style={styles.thumb}>
+            <Tap onPress={() => bill.photoUrl && setViewerSrc(billPages(bill))} accessibilityLabel="View bill photo" style={styles.thumb}>
               {bill.photoUrl ? <AuthImage src={bill.photoUrl} /> : null}
+              <PagesBadge count={billPages(bill).length} />
             </Tap>
             <Tap
               onPress={() =>

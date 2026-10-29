@@ -6,12 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthImage } from '../../../../components/AuthImage'
 import { BillSummary, StatusBadge } from '../../../../components/bills'
 import { IconBill, IconCamera, IconCheck, IconClock, type Icon } from '../../../../components/icons'
-import { PhotoViewer } from '../../../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../../../components/PhotoViewer'
 import { ProjectHero } from '../../../../components/projects'
 import { Screen } from '../../../../components/Screen'
 import { T } from '../../../../components/T'
 import { EmptyState, FilterTabs, PrimaryButton, Tap, type TabOption } from '../../../../components/ui'
 import { useApiGet } from '../../../../lib/api'
+import { billPages } from '../../../../lib/bill'
 import { subscribeQueue, useQueuedUploads, type QueuedUpload } from '../../../../lib/offlineQueue'
 import { colors, glass, radii, ring } from '../../../../lib/theme'
 import type { Delivery, Project } from '../../../../lib/types'
@@ -42,6 +43,7 @@ function WaitingCard({ item }: { item: QueuedUpload }) {
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <View style={styles.thumb}>
           <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <PagesBadge count={1 + (item.morePages?.length ?? 0)} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
           <BillSummary
@@ -58,15 +60,17 @@ function WaitingCard({ item }: { item: QueuedUpload }) {
   )
 }
 
-function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: (src: string) => void }) {
+function SentCard({ delivery, onViewPhoto }: { delivery: Delivery; onViewPhoto: (pages: string[]) => void }) {
+  const pages = billPages(delivery)
   return (
     <View style={[glass, styles.card, { flexDirection: 'row', gap: 12 }]}>
       <Tap
-        onPress={() => delivery.photoUrl && onViewPhoto(delivery.photoUrl)}
+        onPress={() => pages.length > 0 && onViewPhoto(pages)}
         accessibilityLabel="View bill photo"
         style={styles.thumb}
       >
         {delivery.photoUrl ? <AuthImage src={delivery.photoUrl} /> : null}
+        <PagesBadge count={pages.length} />
       </Tap>
       <View style={{ flex: 1, minWidth: 0 }}>
         <BillSummary
@@ -92,7 +96,7 @@ export default function SupervisorProject() {
   const deliveries = useApiGet<{ deliveries: Delivery[] }>(`/api/projects/${projectId}/deliveries?uploadedByMe=1`)
   const queued = useQueuedUploads(projectId)
   const [tab, setTab] = useState<Tab>('ALL')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
   const refetchDeliveries = deliveries.refetch
 
   // A queue flush (item removed after a successful background upload) means there's a new

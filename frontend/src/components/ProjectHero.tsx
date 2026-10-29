@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
 import { Skyline } from './ProjectCard'
 import { IconBack } from './icons'
+import { useGoBack } from '../lib/goBack'
 import { GRADIENT } from '../lib/projectColors'
 import type { ProjectAccent } from '../lib/types'
 
@@ -30,6 +30,7 @@ export function ProjectHero({
   action?: ReactNode
   stats?: HeroStat[]
 }) {
+  const goBack = useGoBack(backTo)
   return (
     <div className="flex-shrink-0 px-3 pt-3">
       <div
@@ -37,13 +38,14 @@ export function ProjectHero({
       >
         <Skyline />
         <div className="relative flex items-center justify-between gap-2">
-          <Link
-            to={backTo}
+          <button
+            type="button"
+            onClick={goBack}
             aria-label="Go back"
             className="w-10 h-10 rounded-full bg-white/20 ring-1 ring-white/40 backdrop-blur flex items-center justify-center"
           >
             <IconBack size={20} stroke="#FFFFFF" />
-          </Link>
+          </button>
           {action}
         </div>
 

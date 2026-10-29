@@ -141,6 +141,12 @@ export function rowFromItem(item: Partial<Record<keyof DeliveryItem, string | nu
   return { ...values, original: { ...values } }
 }
 
+/** Every page of a sent bill's photo, in order (from an older server, just photoUrl). */
+export function billPages(delivery: Pick<Delivery, 'photoUrl' | 'photoUrls'>): string[] {
+  if (delivery.photoUrls?.length) return delivery.photoUrls
+  return delivery.photoUrl ? [delivery.photoUrl] : []
+}
+
 export function amountsFromDelivery(delivery: Delivery): Amounts {
   return {
     taxableAmount: text(delivery.taxableAmount),

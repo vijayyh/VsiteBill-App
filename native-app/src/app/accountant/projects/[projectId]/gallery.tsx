@@ -5,12 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthImage } from '../../../../components/AuthImage'
 import { BillSummary, StatusBadge } from '../../../../components/bills'
 import { IconBill, IconCloud } from '../../../../components/icons'
-import { PhotoViewer } from '../../../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../../../components/PhotoViewer'
 import { HeroPill, ProjectHero } from '../../../../components/projects'
 import { Screen } from '../../../../components/Screen'
 import { T } from '../../../../components/T'
 import { EmptyState, FilterTabs, Tap, type TabOption } from '../../../../components/ui'
 import { useApiGet } from '../../../../lib/api'
+import { billPages } from '../../../../lib/bill'
 import { STATUS_META } from '../../../../lib/status'
 import { colors, glass, radii, ring } from '../../../../lib/theme'
 import type { Delivery, DeliveryStatus, OfficeDrive, Project } from '../../../../lib/types'
@@ -25,11 +26,13 @@ const EMPTY: Record<Filter, { title: string; body: string }> = {
   MATCHED: { title: 'No matched bills yet', body: 'Every bill you match stays here permanently.' },
 }
 
-function BillCard({ delivery, projectId, onViewPhoto }: { delivery: Delivery; projectId: string; onViewPhoto: (src: string) => void }) {
+function BillCard({ delivery, projectId, onViewPhoto }: { delivery: Delivery; projectId: string; onViewPhoto: (pages: string[]) => void }) {
+  const pages = billPages(delivery)
   return (
     <View style={[glass, styles.card]}>
-      <Tap onPress={() => delivery.photoUrl && onViewPhoto(delivery.photoUrl)} accessibilityLabel="View bill photo" style={styles.thumb}>
+      <Tap onPress={() => pages.length > 0 && onViewPhoto(pages)} accessibilityLabel="View bill photo" style={styles.thumb}>
         {delivery.photoUrl ? <AuthImage src={delivery.photoUrl} /> : null}
+        <PagesBadge count={pages.length} />
       </Tap>
       <Tap onPress={() => router.push(`/accountant/projects/${projectId}/review/${delivery.id}`)} style={{ flex: 1, minWidth: 0 }}>
         <BillSummary
@@ -56,7 +59,7 @@ export default function ProjectGallery() {
   const deliveries = useApiGet<{ deliveries: Delivery[] }>(`/api/projects/${projectId}/deliveries`)
   const { data: drive } = useApiGet<OfficeDrive>('/api/office/drive')
   const [filter, setFilter] = useState<Filter>('ALL')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
 
   if (projectQuery.error) return <Redirect href="/accountant" />
   const project = projectQuery.data?.project

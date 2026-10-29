@@ -135,7 +135,48 @@ def read_bill(photo: bytes) -> Reading:
     return Reading(provider="google", text=page.text, fields=parse_page(page))
 
 
+def read_bill_pages(photos: list[bytes]) -> tuple[Reading, list[int]]:
+    """Reads the pages of one bill (page order kept) and combines them into one reading (see
+    parse_pages). Returns the reading and the numbers (1-based) of the pages that couldn't be read;
+    the reading covers the rest. Raises OcrError if no page could be read."""
+    if len(photos) == 1:
+        return read_bill(photos[0]), []
+    results = [OcrError("Photo too large to read") if len(p) > MAX_PHOTO_BYTES else None for p in photos]
+    to_read = [i for i, result in enumerate(results) if result is None]
+    for i, page in zip(to_read, _google_vision_pages([photos[i] for i in to_read])):
+        results[i] = page
+    read = [(number, page) for number, page in enumerate(results, start=1) if isinstance(page, Page)]
+    if not read:
+        raise OcrError(f"No page could be read: {results[0]}")
+    text = "\n\n".join(f"--- Page {number} ---\n{page.text}" for number, page in read)
+    failed = [number for number, page in enumerate(results, start=1) if not isinstance(page, Page)]
+    return Reading(provider="google", text=text, fields=parse_pages([page for _, page in read])), failed
+
+
 def _google_vision(photo: bytes) -> Page:
+    page = _google_vision_pages([photo])[0]
+    if isinstance(page, OcrError):
+        raise page
+    return page
+
+
+def _google_vision_pages(photos: list[bytes]) -> list:
+    """Each photo read by Vision, in order: a Page, or the OcrError that page failed with. As few
+    requests as fit under Vision's 10 MB request limit (one, for a few shrunk photos)."""
+    results = []
+    batch, size = [], 0
+    for photo in photos:
+        if batch and size + len(photo) > MAX_PHOTO_BYTES:
+            results += _vision_request(batch)
+            batch, size = [], 0
+        batch.append(photo)
+        size += len(photo)
+    if batch:
+        results += _vision_request(batch)
+    return results
+
+
+def _vision_request(photos: list[bytes]) -> list:
     body = {
         "requests": [
             {
@@ -143,6 +184,7 @@ def _google_vision(photo: bytes) -> Page:
                 # Document mode reads dense printed text (bills) better than plain TEXT_DETECTION.
                 "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
             }
+            for photo in photos
         ]
     }
     request = urllib.request.Request(
@@ -152,22 +194,30 @@ def _google_vision(photo: bytes) -> Page:
         headers={"Content-Type": "application/json", "X-Goog-Api-Key": current_app.config["GOOGLE_VISION_API_KEY"]},
         method="POST",
     )
+    # A few seconds more for each extra page in the same request.
+    timeout = current_app.config["OCR_TIMEOUT_SECONDS"] + 5 * (len(photos) - 1)
     try:
-        with urllib.request.urlopen(request, timeout=current_app.config["OCR_TIMEOUT_SECONDS"]) as res:
+        with urllib.request.urlopen(request, timeout=timeout) as res:
             data = json.load(res)
     except urllib.error.HTTPError as e:
         try:
             message = json.load(e).get("error", {}).get("message", "")
         except ValueError:
             message = ""
-        raise OcrError(f"Vision API returned {e.code}: {message}") from e
+        error = OcrError(f"Vision API returned {e.code}: {message}")
+        return [error] * len(photos)
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
-        raise OcrError(f"Vision API request failed: {e}") from e
+        return [OcrError(f"Vision API request failed: {e}")] * len(photos)
 
-    response = (data.get("responses") or [{}])[0]
-    if "error" in response:
-        raise OcrError(f"Vision API error: {response['error'].get('message', '')}")
-    return page_from_vision(response.get("fullTextAnnotation") or {})
+    responses = data.get("responses") or []
+    pages = []
+    for i in range(len(photos)):
+        response = responses[i] if i < len(responses) else {"error": {"message": "no response for this page"}}
+        if "error" in response:
+            pages.append(OcrError(f"Vision API error: {response['error'].get('message', '')}"))
+        else:
+            pages.append(page_from_vision(response.get("fullTextAnnotation") or {}))
+    return pages
 
 
 def page_from_vision(annotation: dict) -> Page:
@@ -323,10 +373,11 @@ ROW_KEYS = ("description", "quantity", "unit", "rate", "amount")
 ADDS_UP = 0.95  # the confidence of amounts that check out against each other
 
 
-def parse_page(page: Page) -> dict:
+def parse_page(page: Page, printed_amounts: set | None = None) -> dict:
     """Everything read off a page of positioned words. Each field is {"value", "confidence"} or
     None. "items" is the goods table (a list of rows); "item" and "delivered" are its summary (the
-    names, and the total quantity the office compares with the PO)."""
+    names, and the total quantity the office compares with the PO). `printed_amounts`, if given, gets
+    the amounts read off a labelled line rather than worked out (see _amounts)."""
     fields = {key: None for key in FIELD_NAMES}
     if not page.words:
         return fields
@@ -353,7 +404,77 @@ def parse_page(page: Page) -> dict:
             if printed is not None and abs(printed[0] - total) > 0.001:
                 confidence *= 0.7  # the rows don't add up to the printed total: something was misread
             fields["delivered"] = _field(total, confidence)
-    fields.update(_amounts(page, table, rows))
+    fields.update(_amounts(page, table, rows, printed_amounts))
+    return fields
+
+
+HEADER_FIELDS = ("vendor", "invoiceNumber", "billDate", "poNumber")
+TAX_FIELDS = ("cgst", "sgst", "igst")
+
+
+def parse_pages(pages: list[Page]) -> dict:
+    """The pages of one bill, read as one bill. Each page is read on its own (each photo has its
+    own scale and tilt), then combined in page order:
+
+    - the vendor, bill no., date and PO number come from the first page that shows them;
+    - the goods rows of every page, one after the other (a continuation page needs its own column
+      headings to be read as a table, which printed bills repeat on each page);
+    - an amount printed on a labelled line ("Taxable Value", "CGST", "Grand Total") comes from the
+      last page that prints it, since a bill's totals are at its end. Otherwise it is worked out
+      from all the pages: the rows' amounts added up, and the total as taxable + GST (marked for
+      checking, as on a single page).
+
+    One page reads exactly as parse_page reads it."""
+    if len(pages) == 1:
+        return parse_page(pages[0])
+    readings = []
+    for page in pages:
+        printed = set()
+        readings.append((parse_page(page, printed), printed))
+
+    fields = {key: None for key in FIELD_NAMES}
+    for key in HEADER_FIELDS:
+        fields[key] = next((f[key] for f, _ in readings if f[key]), None)
+
+    rows = [row for f, _ in readings if f["items"] for row in f["items"]["value"]]
+    if rows:
+        fields["items"] = _field(rows, min(f["items"]["confidence"] for f, _ in readings if f["items"]))
+        named = [row for row in rows if row["description"]]
+        names = [f["item"] for f, _ in readings if f["item"]]
+        if named and names:
+            fields["item"] = _field(", ".join(r["description"] for r in named), min(n["confidence"] for n in names))
+        counted = [row for row in rows if row["quantity"] is not None]
+        quantities = [f["delivered"] for f, _ in readings if f["delivered"]]
+        if counted and quantities:
+            total = round(sum(row["quantity"] for row in counted), 3)
+            fields["delivered"] = _field(total, min(q["confidence"] for q in quantities))
+
+    def last_printed(key):
+        return next((f[key] for f, printed in reversed(readings) if key in printed and f[key]), None)
+
+    def page_shares(key):
+        return [f[key] for f, printed in readings if key not in printed and f[key]]
+
+    for key in TAX_FIELDS:
+        shares = page_shares(key)  # a GST column in each page's goods table
+        fields[key] = last_printed(key) or (
+            _field(round(sum(s["value"] for s in shares), 2), min(s["confidence"] for s in shares) * 0.9) if shares else None
+        )
+    taxable = last_printed("taxableAmount")
+    if not taxable and rows and all(row["amount"] is not None for row in rows):
+        taxable = _field(round(sum(row["amount"] for row in rows), 2), min(row["confidence"] for row in rows) * 0.9)
+    elif not taxable and page_shares("taxableAmount"):
+        shares = page_shares("taxableAmount")
+        taxable = _field(round(sum(s["value"] for s in shares), 2), min(s["confidence"] for s in shares) * 0.9)
+    fields["taxableAmount"] = taxable
+
+    taxes = [fields[key] for key in TAX_FIELDS if fields[key]]
+    fields["totalAmount"] = last_printed("totalAmount")
+    if not fields["totalAmount"] and taxable:
+        # Worked out, not read: always asks to be checked (as _amounts does for one page).
+        confidence = min([taxable["confidence"]] + [t["confidence"] for t in taxes]) * 0.9
+        taxed = taxable["value"] + sum(t["value"] for t in taxes)
+        fields["totalAmount"] = _field(round(taxed, 2), min(confidence, LOW_CONFIDENCE - 0.01))
     return fields
 
 
@@ -1074,7 +1195,11 @@ def _unlabelled_total(page, line, match, slope, expected):
     return _field(value, max(confidence, ADDS_UP))
 
 
-def _amounts(page, table, rows):
+def _amounts(page, table, rows, printed=None):
+    """The bill's amounts. `printed`, if given, gets the keys read off a labelled line of the bill
+    ("Grand Total", "CGST @ 9%") rather than worked out from this page's goods table, which is what
+    tells a multi-page bill's own totals from one page's share of them (see parse_pages)."""
+    printed = set() if printed is None else printed
     found = {"taxableAmount": None, "cgst": None, "sgst": None, "igst": None, "totalAmount": None}
     outside = [l for l in page.lines if not (table and table.top <= l.cy <= table.bottom)]
     slope = table.slope if table else 0.0
@@ -1085,6 +1210,8 @@ def _amounts(page, table, rows):
         if match:
             key = {"CGST": "cgst", "SGST": "sgst", "UTGST": "sgst", "IGST": "igst"}[match.group(1).upper()]
             found[key] = found[key] or _amount_beside(page, line, match, slope)
+            if found[key]:
+                printed.add(key)
             tax_lines.append((line, match))
     if table and not any(found[k] for k in ("cgst", "sgst", "igst")):
         # GST as a column of the goods table ("Tax Type: IGST", "Tax Amount: ₹315.18").
@@ -1108,6 +1235,7 @@ def _amounts(page, table, rows):
         if match:
             found["taxableAmount"] = _amount_beside(page, line, match, slope)
             if found["taxableAmount"]:
+                printed.add("taxableAmount")
                 break
     if not found["taxableAmount"] and rows:
         if table and "amount" in table.totals:
@@ -1121,6 +1249,7 @@ def _amounts(page, table, rows):
         if match:
             found["totalAmount"] = _amount_beside(page, line, match, slope)
             if found["totalAmount"]:
+                printed.add("totalAmount")
                 break
     taxes = [found[k] for k in ("cgst", "sgst", "igst") if found[k]]
     if not found["totalAmount"] and found["taxableAmount"] and taxes and tax_lines:
@@ -1131,6 +1260,7 @@ def _amounts(page, table, rows):
         total = _unlabelled_total(page, last, match, slope, expected)
         if total:
             found["totalAmount"] = total
+            printed.add("totalAmount")
     worked_out = False
     if not found["totalAmount"] and rows:
         confidence = min(r["confidence"] for r in rows) * 0.9

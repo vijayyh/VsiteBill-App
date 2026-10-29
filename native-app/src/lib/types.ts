@@ -76,6 +76,8 @@ export interface Delivery {
   quantityLowConfidence: boolean
   note: string | null
   photoUrl: string | null
+  /** Every page of the bill, in order (the first is photoUrl). Missing from an older server. */
+  photoUrls?: string[]
   uploadedBy: string | null
   uploadedAt: string
   driveFileId: string | null

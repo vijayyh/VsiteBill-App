@@ -17,6 +17,7 @@ import { api, ApiError, useApiGet } from '../../../../../lib/api'
 import {
   AMOUNT_FIELDS,
   amountsFromDelivery,
+  billPages,
   editedFields,
   emptyAmounts,
   emptyRow,
@@ -216,7 +217,7 @@ export default function ReviewDelivery() {
                         <View style={styles.enlarge}>
                           <Frost blur={8} tint="rgba(0, 0, 0, 0.45)" style={{ borderRadius: 999 }} />
                           <T size={12} weight={700} color={colors.white}>
-                            Tap to enlarge
+                            {billPages(delivery).length > 1 ? `${billPages(delivery).length} pages · tap to see them` : 'Tap to enlarge'}
                           </T>
                         </View>
                       </FrostScope>
@@ -416,7 +417,7 @@ export default function ReviewDelivery() {
           <PageTabs tabs={tabs} value={tab} onChange={showTab} />
         </ScreenHeader>
       </FrostScope>
-      {viewerOpen ? <PhotoViewer src={delivery.photoUrl} onClose={() => setViewerOpen(false)} /> : null}
+      {viewerOpen ? <PhotoViewer src={billPages(delivery)} onClose={() => setViewerOpen(false)} /> : null}
     </Screen>
   )
 }

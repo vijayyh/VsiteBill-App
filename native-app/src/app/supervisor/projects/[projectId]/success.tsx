@@ -1,4 +1,4 @@
-import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router'
+import { Redirect, router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router'
 import { useCallback } from 'react'
 import { BackHandler, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -10,6 +10,9 @@ import { useApiGet } from '../../../../lib/api'
 import { colors, shadowSoft } from '../../../../lib/theme'
 import type { Project } from '../../../../lib/types'
 
+// The screens of adding one bill, on the supervisor's stack.
+const BILL_FLOW = new Set(['projects/[projectId]/upload', 'projects/[projectId]/details', 'projects/[projectId]/success'])
+
 // Same as the web app's confirmation screen (frontend/src/screens/supervisor/UploadSuccess.tsx).
 export default function UploadSuccess() {
   const { projectId = '', queued: queuedParam } = useLocalSearchParams<{ projectId: string; queued?: string }>()
@@ -18,8 +21,25 @@ export default function UploadSuccess() {
   const { data, error } = useApiGet<{ project: Project }>(`/api/projects/${projectId}`)
   const projectPath = `/supervisor/projects/${projectId}` as const
 
-  // Back from here goes to the project, not into the finished form.
-  const toProject = useCallback(() => router.dismissTo(projectPath), [projectPath])
+  // Back from here goes to the project, not into the finished form. The bill's own screens (the
+  // Add a bill sheet and this one) come off the stack. Started from the Add bill tab, the project
+  // was never opened: it takes their place, so back from it returns to that tab rather than to
+  // the sheet (dismissTo alone opened it on top of the sheet).
+  const navigation = useNavigation()
+  const toProject = useCallback(() => {
+    const routes = navigation.getState()?.routes ?? []
+    let below = routes.length - 1
+    while (below > 0 && BILL_FLOW.has(routes[below].name)) below -= 1
+    const route = routes[below]
+    const projectBelow =
+      route?.name === 'projects/[projectId]/index' && (route.params as { projectId?: string } | undefined)?.projectId === projectId
+    if (routes.length === 0 || projectBelow) {
+      router.dismissTo(projectPath)
+      return
+    }
+    router.dismiss(routes.length - 1 - below)
+    router.push(projectPath)
+  }, [navigation, projectId, projectPath])
   useFocusEffect(
     useCallback(() => {
       const sub = BackHandler.addEventListener('hardwareBackPress', () => {

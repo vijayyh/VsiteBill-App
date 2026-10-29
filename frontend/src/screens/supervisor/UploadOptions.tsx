@@ -1,8 +1,9 @@
 import { useRef } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ProjectHero } from '../../components/ProjectHero'
 import { IconCamera, IconChevronRight, IconGallery } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
+import { useGoBack } from '../../lib/goBack'
 import type { Project } from '../../lib/types'
 
 export function UploadOptions() {
@@ -11,18 +12,23 @@ export function UploadOptions() {
     `/api/projects/${projectId}`,
   )
   const navigate = useNavigate()
+  // Opened from the project's own screen (not the Add bill tab): see UploadSuccess.
+  const fromProject = (useLocation().state as { fromProject?: boolean } | null)?.fromProject === true
+  const projectPath = `/supervisor/projects/${projectId}`
+  const close = useGoBack(projectPath)
   const cameraInput = useRef<HTMLInputElement>(null)
   const galleryInput = useRef<HTMLInputElement>(null)
 
   function onFilePicked(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    navigate(`/supervisor/projects/${projectId}/details`, { state: { file } })
+    // The form takes this sheet's place, so back from the form returns to the project, as from
+    // the phone's own camera; "Retake" on the form brings the sheet back.
+    navigate(`/supervisor/projects/${projectId}/details`, { state: { file, fromProject }, replace: true })
   }
 
   if (projectError) return <Navigate to="/supervisor" replace />
   const project = projectData?.project
-  const projectPath = `/supervisor/projects/${projectId}`
 
   return (
     <div className="relative flex flex-col flex-grow text-ink">
@@ -31,8 +37,9 @@ export function UploadOptions() {
         <ProjectHero backTo={projectPath} code={project?.code} name={project?.name} accent={project?.accent} />
       </div>
 
-      <Link
-        to={projectPath}
+      <button
+        type="button"
+        onClick={close}
         aria-label="Cancel"
         className="absolute inset-0 bg-ink/35 backdrop-blur-[3px]"
       />
@@ -84,9 +91,13 @@ export function UploadOptions() {
             <input ref={galleryInput} type="file" accept="image/*" className="hidden" onChange={onFilePicked} />
           </div>
 
-          <Link to={projectPath} className="block text-center mt-3 py-3 text-[14px] font-semibold text-ink-muted">
+          <button
+            type="button"
+            onClick={close}
+            className="block w-full text-center mt-3 py-3 text-[14px] font-semibold text-ink-muted"
+          >
             Cancel
-          </Link>
+          </button>
         </div>
       </div>
     </div>

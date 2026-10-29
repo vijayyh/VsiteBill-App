@@ -29,20 +29,25 @@ export interface BillReading {
     }
   /** Below this confidence a value is shown as "please check". */
   lowConfidence: number
+  /** Pages (1-based) that couldn't be read: the fields cover the other pages only. */
+  failedPages?: number[]
 }
 
 /**
  * Asks the server to read a bill photo: vendor, bill number and date, PO number, the goods table
- * and the amounts. Returns null whenever it can't (no signal, reading not set up, or the photo
- * couldn't be read): the supervisor then types the details in as before.
+ * and the amounts. A bill in several pages is read as one bill (all pages, in order). Returns null
+ * whenever it can't (no signal, reading not set up, or the photo couldn't be read): the
+ * supervisor then types the details in as before.
  */
-export async function readBill(photoUri: string, filename: string): Promise<BillReading | null> {
+export async function readBill(pages: { uri: string; filename: string }[]): Promise<BillReading | null> {
   if (!(await isOnline())) return null
   try {
     const form = new FormData()
-    // The same photo part the bill itself is sent with (see billForm in offlineQueue.ts).
-    const photo = { uri: photoUri, name: filename, type: 'image/jpeg', bytes: () => new File(photoUri).bytes() }
-    form.append('photo', photo as unknown as Blob)
+    // The same photo parts the bill itself is sent with (see billForm in offlineQueue.ts).
+    for (const page of pages) {
+      const photo = { uri: page.uri, name: page.filename, type: 'image/jpeg', bytes: () => new File(page.uri).bytes() }
+      form.append('photo', photo as unknown as Blob)
+    }
     return await api.post<BillReading>('/api/ocr/bill', form)
   } catch {
     return null

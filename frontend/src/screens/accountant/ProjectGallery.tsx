@@ -3,11 +3,12 @@ import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
 import { IconBill, IconCloud } from '../../components/icons'
-import { PhotoViewer } from '../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../components/PhotoViewer'
 import { ProjectHero, heroPill } from '../../components/ProjectHero'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, FilterTabs, type TabOption } from '../../components/ui'
 import { useApiGet } from '../../lib/api'
+import { billPages } from '../../lib/bill'
 import { STATUS_META } from '../../lib/status'
 import type { Delivery, DeliveryStatus, OfficeDrive, Project } from '../../lib/types'
 
@@ -27,17 +28,19 @@ function BillCard({
 }: {
   delivery: Delivery
   projectId: string
-  onViewPhoto: (src: string) => void
+  onViewPhoto: (pages: string[]) => void
 }) {
+  const pages = billPages(delivery)
   return (
     <div className="glass rounded-card flex gap-3 p-3">
       <button
         type="button"
-        onClick={() => delivery.photoUrl && onViewPhoto(delivery.photoUrl)}
+        onClick={() => pages.length > 0 && onViewPhoto(pages)}
         aria-label="View bill photo"
-        className="w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70"
+        className="relative w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70"
       >
         {delivery.photoUrl && <AuthImage src={delivery.photoUrl} className="w-full h-full object-cover" />}
+        <PagesBadge count={pages.length} />
       </button>
 
       <Link to={`/accountant/projects/${projectId}/review/${delivery.id}`} className="flex-grow min-w-0 block">
@@ -69,7 +72,7 @@ export function ProjectGallery() {
   )
   const { data: drive } = useApiGet<OfficeDrive>('/api/office/drive')
   const [filter, setFilter] = useState<Filter>('ALL')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
 
   if (projectError) return <Navigate to="/accountant" replace />
   const project = projectData?.project

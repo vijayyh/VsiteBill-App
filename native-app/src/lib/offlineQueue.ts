@@ -40,7 +40,15 @@ const OPTIONAL_DETAILS = [
   'igst',
   'totalAmount',
 ] as const
-type ExtraDetails = Partial<Pick<QueuedUploadDetails, (typeof OPTIONAL_DETAILS)[number] | 'ocrScanId'>>
+type ExtraDetails = Partial<Pick<QueuedUploadDetails, (typeof OPTIONAL_DETAILS)[number] | 'ocrScanId'>> & {
+  morePages?: MorePage[]
+}
+
+/** A bill's pages after the first (the first is the queued item's own uri and filename). */
+export interface MorePage {
+  uri: string
+  filename: string
+}
 
 function extraDetails(details: QueuedUploadDetails): ExtraDetails {
   const extra: ExtraDetails = {}
@@ -55,6 +63,8 @@ export interface QueuedUpload extends QueuedUploadDetails {
   /** Local file of the photo, ready to show or send. */
   uri: string
   filename: string
+  /** Pages 2, 3, … of the bill, also local files. Missing on bills queued before bills had pages. */
+  morePages?: MorePage[]
   createdAt: string
 }
 
@@ -153,16 +163,24 @@ export async function queueUpload(
   photoUri: string,
   filename: string,
   details: QueuedUploadDetails,
+  morePages: MorePage[] = [],
 ): Promise<QueuedUpload> {
   const db = await getDb()
   const id = newId()
   const stored = new File(pendingDir(), `${id}.jpg`)
   new File(photoUri).copy(stored)
+  // The bill's other pages are kept next to it, listed (in order) with the other details.
+  const storedPages = morePages.map((page, i) => {
+    const file = new File(pendingDir(), `${id}-p${i + 2}.jpg`)
+    new File(page.uri).copy(file)
+    return { uri: file.uri, filename: page.filename }
+  })
   const record: QueuedUpload = {
     id,
     projectId,
     uri: stored.uri,
     filename,
+    morePages: storedPages,
     createdAt: new Date().toISOString(),
     ...details,
   }
@@ -179,7 +197,7 @@ export async function queueUpload(
       details.delivered,
       details.poNumber,
       record.createdAt,
-      JSON.stringify(extraDetails(details)),
+      JSON.stringify({ ...extraDetails(details), morePages: storedPages }),
     ],
   )
   notifyListeners()
@@ -197,23 +215,28 @@ export async function listQueued(projectId?: string): Promise<QueuedUpload[]> {
 export async function removeQueued(item: QueuedUpload) {
   const db = await getDb()
   await db.runAsync('DELETE FROM pending_uploads WHERE id = ?', [item.id])
-  try {
-    const file = new File(item.uri)
-    if (file.exists) file.delete()
-  } catch {
-    // The row is gone either way; a leftover file is harmless.
+  for (const uri of [item.uri, ...(item.morePages ?? []).map((page) => page.uri)]) {
+    try {
+      const file = new File(uri)
+      if (file.exists) file.delete()
+    } catch {
+      // The row is gone either way; a leftover file is harmless.
+    }
   }
   notifyListeners()
 }
 
-/** The bill's form data, as the API expects it (same fields as the web app sends). */
-export function billForm(photoUri: string, filename: string, details: QueuedUploadDetails) {
+/** The bill's form data, as the API expects it (same fields as the web app sends): one "photo"
+ * part per page, in page order. */
+export function billForm(photoUri: string, filename: string, details: QueuedUploadDetails, morePages: MorePage[] = []) {
   const form = new FormData()
-  // The photo part, readable by both fetch implementations: Expo's default fetch reads the file
+  // The photo parts, readable by both fetch implementations: Expo's default fetch reads the file
   // through bytes(); React Native's own fetch sends the { uri, name, type } shape. Either way the
   // server gets a JPEG with this filename, as the browser sends it on the web.
-  const photo = { uri: photoUri, name: filename, type: 'image/jpeg', bytes: () => new File(photoUri).bytes() }
-  form.append('photo', photo as unknown as Blob)
+  for (const page of [{ uri: photoUri, filename }, ...morePages]) {
+    const photo = { uri: page.uri, name: page.filename, type: 'image/jpeg', bytes: () => new File(page.uri).bytes() }
+    form.append('photo', photo as unknown as Blob)
+  }
   form.append('vendor', details.vendor)
   form.append('item', details.item)
   form.append('delivered', details.delivered)
@@ -247,7 +270,10 @@ export async function flushQueue(): Promise<{ uploaded: number; remaining: numbe
   try {
     for (const item of await listQueued()) {
       try {
-        await api.post(`/api/projects/${item.projectId}/deliveries`, billForm(item.uri, item.filename, item))
+        await api.post(
+          `/api/projects/${item.projectId}/deliveries`,
+          billForm(item.uri, item.filename, item, item.morePages),
+        )
         await removeQueued(item)
         uploaded += 1
       } catch (err) {

@@ -112,6 +112,9 @@ class Delivery(db.Model):
     total_amount = db.Column(db.Float, nullable=True)
 
     photo_filename = db.Column(db.String(255), nullable=True)
+    # A bill photographed in several pages: page 1 is `photo_filename` (so everything that shows
+    # or archives "the photo" keeps working), the pages after it are these stored names, in order.
+    more_photo_filenames = db.Column(db.JSON, nullable=False, default=list, server_default="[]")
     uploaded_at = db.Column(db.DateTime, nullable=False, default=utcnow)
 
     drive_file_id = db.Column(db.String(100), nullable=True)
@@ -140,6 +143,8 @@ class Delivery(db.Model):
             "quantityLowConfidence": self.quantity_low_confidence,
             "note": self.note,
             "photoUrl": f"/uploads/{self.photo_filename}" if self.photo_filename else None,
+            # Every page of the bill, in order (the first is photoUrl).
+            "photoUrls": [f"/uploads/{name}" for name in self.photo_filenames()],
             "uploadedBy": self.uploaded_by.name if self.uploaded_by else None,
             "uploadedAt": iso_utc(self.uploaded_at),
             "driveFileId": self.drive_file_id,
@@ -155,6 +160,10 @@ class Delivery(db.Model):
             "igst": self.igst,
             "totalAmount": self.total_amount,
         }
+
+    def photo_filenames(self):
+        """The stored photo of every page, page 1 first."""
+        return ([self.photo_filename] if self.photo_filename else []) + list(self.more_photo_filenames or [])
 
 
 class DeliveryItem(db.Model):
@@ -193,6 +202,8 @@ class OcrScan(db.Model):
     delivery_id = db.Column(db.Integer, db.ForeignKey("deliveries.id"), nullable=True, index=True)
     provider = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utcnow)
+    # Pages read for this reading: each one is a Vision reading charged for (the monthly limit).
+    pages = db.Column(db.Integer, nullable=False, default=1, server_default="1")
 
     text = db.Column(db.Text, nullable=False, default="")  # everything the reader found on the photo
     vendor = db.Column(db.String(200), nullable=True)

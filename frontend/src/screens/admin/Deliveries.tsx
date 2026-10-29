@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { AdminShell } from '../../components/AdminShell'
 import { AuthImage } from '../../components/AuthImage'
 import { BillSummary } from '../../components/BillSummary'
-import { PhotoViewer } from '../../components/PhotoViewer'
+import { PagesBadge, PhotoViewer } from '../../components/PhotoViewer'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, FilterTabs, SearchField, type TabOption } from '../../components/ui'
 import { IconBill } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
+import { billPages } from '../../lib/bill'
 import { STATUS_META } from '../../lib/status'
 import type { AdminDelivery, DeliveryStatus } from '../../lib/types'
 
@@ -15,7 +16,7 @@ type Filter = 'ALL' | DeliveryStatus
 
 export function AdminDeliveries() {
   const { data, loading } = useApiGet<{ deliveries: AdminDelivery[] }>('/api/admin/deliveries')
-  const [viewerSrc, setViewerSrc] = useState<string | null>(null)
+  const [viewerSrc, setViewerSrc] = useState<string[] | null>(null)
   const [filter, setFilter] = useState<Filter>('ALL')
   const [query, setQuery] = useState('')
 
@@ -55,11 +56,12 @@ export function AdminDeliveries() {
           <div key={bill.id} className="glass rounded-card flex gap-3 p-3">
             <button
               type="button"
-              onClick={() => bill.photoUrl && setViewerSrc(bill.photoUrl)}
+              onClick={() => bill.photoUrl && setViewerSrc(billPages(bill))}
               aria-label="View bill photo"
-              className="w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70"
+              className="relative w-[60px] h-[60px] rounded-[12px] bg-camera-bg flex-shrink-0 overflow-hidden ring-1 ring-white/70"
             >
               {bill.photoUrl && <AuthImage src={bill.photoUrl} className="w-full h-full object-cover" />}
+              <PagesBadge count={billPages(bill).length} />
             </button>
             <Link
               to={`/admin/projects/${bill.projectId}/review/${bill.id}`}

@@ -1,13 +1,21 @@
-import { Link, Navigate, useLocation, useParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Card, btnPrimary, btnSecondary } from '../../components/ui'
 import { IconCamera, IconCheck, IconClock } from '../../components/icons'
 import { useApiGet } from '../../lib/api'
+import { useGoBack } from '../../lib/goBack'
 import type { Project } from '../../lib/types'
 
 export function UploadSuccess() {
   const { projectId = '' } = useParams()
   const location = useLocation()
-  const queued = (location.state as { queued?: boolean } | null)?.queued === true
+  const navigate = useNavigate()
+  const { queued = false, fromProject = false } = (location.state as { queued?: boolean; fromProject?: boolean } | null) ?? {}
+  const projectPath = `/supervisor/projects/${projectId}`
+  // This screen took the bill form's place. Started from the project's own screen, one step back
+  // is that project. Started from the Add bill tab, the project takes this screen's place, so back
+  // from it returns to that tab (adding it on top would make back return here).
+  const goBack = useGoBack(projectPath)
+  const backToProject = () => (fromProject ? goBack() : navigate(projectPath, { replace: true }))
 
   const { data, error } = useApiGet<{ project: Project }>(`/api/projects/${projectId}`)
   if (error) return <Navigate to="/supervisor" replace />
@@ -63,10 +71,15 @@ export function UploadSuccess() {
       </div>
 
       <div className="flex-shrink-0 px-5 pt-2 pb-8 flex flex-col gap-2.5">
-        <Link to={`/supervisor/projects/${projectId}`} className={`${btnPrimary} w-full py-4 text-[15px]`}>
+        <button type="button" onClick={backToProject} className={`${btnPrimary} w-full py-4 text-[15px]`}>
           Back to project
-        </Link>
-        <Link to={`/supervisor/projects/${projectId}/upload`} className={`${btnSecondary} w-full py-3.5 text-[14px]`}>
+        </button>
+        <Link
+          to={`/supervisor/projects/${projectId}/upload`}
+          replace
+          state={{ fromProject }}
+          className={`${btnSecondary} w-full py-3.5 text-[14px]`}
+        >
           <IconCamera size={18} stroke="var(--color-ink)" />
           Add another bill
         </Link>

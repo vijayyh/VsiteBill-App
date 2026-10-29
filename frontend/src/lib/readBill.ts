@@ -24,18 +24,21 @@ export interface BillReading {
     }
   /** Below this confidence a value is shown as "please check". */
   lowConfidence: number
+  /** Pages (1-based) that couldn't be read: the fields cover the other pages only. */
+  failedPages?: number[]
 }
 
 /**
  * Asks the server to read a bill photo (OCR): vendor, bill number and date, PO number, the goods
- * table and the amounts. Returns null whenever it can't (no signal, reading not set up, or the
- * photo couldn't be read): the supervisor then types the details in as before.
+ * table and the amounts. A bill in several pages is read as one bill (all pages, in order).
+ * Returns null whenever it can't (no signal, reading not set up, or the photo couldn't be read):
+ * the supervisor then types the details in as before.
  */
-export async function readBill(photo: File): Promise<BillReading | null> {
+export async function readBill(pages: File[]): Promise<BillReading | null> {
   if (!navigator.onLine) return null
   try {
     const form = new FormData()
-    form.append('photo', photo)
+    for (const page of pages) form.append('photo', page)
     return await api.post<BillReading>('/api/ocr/bill', form)
   } catch {
     return null

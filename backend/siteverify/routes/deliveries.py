@@ -16,6 +16,8 @@ TEXT_FIELDS = {"vendor": "vendor", "item": "item", "poNumber": "po_number", "not
 # The longest each can be (its column's size): Postgres refuses anything longer.
 TEXT_LIMITS = {"vendor": 200, "item": 300, "poNumber": 50}
 NUMBER_FIELDS = ("ordered", "delivered")
+# Pages one bill can have (each is a photo of about 0.5–1 MB once the app has shrunk it).
+MAX_BILL_PAGES = 10
 
 
 def _visible_to_current_user(delivery):
@@ -52,14 +54,18 @@ def create_delivery(project_id):
     if project is None:
         return jsonify({"error": "Project not found"}), 404
 
-    photo = request.files.get("photo")
-    if photo is None or photo.filename == "":
+    # One "photo" part per page of the bill, in page order (apps that send one photo send one part).
+    photos = [photo for photo in request.files.getlist("photo") if photo.filename]
+    if not photos:
         return jsonify({"error": "A photo file is required"}), 400
+    if len(photos) > MAX_BILL_PAGES:
+        return jsonify({"error": f"A bill can have at most {MAX_BILL_PAGES} pages"}), 400
 
-    ext = secure_filename(photo.filename).rsplit(".", 1)[-1].lower() if "." in photo.filename else "jpg"
-    filename = f"{uuid.uuid4().hex}.{ext}"
-
-    storage.save_photo(photo, filename)
+    filenames = []
+    for photo in photos:
+        ext = secure_filename(photo.filename).rsplit(".", 1)[-1].lower() if "." in photo.filename else "jpg"
+        filenames.append(f"{uuid.uuid4().hex}.{ext}")
+        storage.save_photo(photo, filenames[-1])
 
     # Sending is lenient: a bill can arrive long after it was photographed (from a phone's offline
     # queue), and rejecting it would lose it. A value that can't be read is simply left empty.
@@ -78,7 +84,8 @@ def create_delivery(project_id):
         invoice_number=lenient(bills.text, form.get("invoiceNumber"), "invoiceNumber", 60),
         bill_date=lenient(bills.bill_date, form.get("billDate")),
         status="PENDING",
-        photo_filename=filename,
+        photo_filename=filenames[0],
+        more_photo_filenames=filenames[1:],
     )
     for key, column in bills.AMOUNT_FIELDS.items():
         setattr(delivery, column, lenient(bills.number, form.get(key), key))
